@@ -3,6 +3,7 @@
 	"version": "1.0.0",
 	"description": "backfr build tool",
 	"type": "module",
+	"bin": "dist/cli.js",
 	"scripts": {
 		"build": "tsc",
 		"build:watch": "tsc -w"

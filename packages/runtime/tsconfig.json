@@ -7,7 +7,7 @@
 		"types": ["node"],
 		"jsx": "react-jsx",
 		"outDir": "dist",
-		"esModuleInterop": true,
-		"noEmit": true
+		"declaration": true,
+		"esModuleInterop": true
 	}
 }

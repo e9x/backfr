@@ -60,15 +60,22 @@ export default async function compileBack(cwd: string) {
 		version,
 		pages: {},
 		checksums: {},
+		dist: [],
 	};
 
 	const rootNames = [];
 
 	for (const file of await globP('src/**/{*.tsx,*.jsx,*.ts,*.js}', { cwd })) {
 		const dest = join(paths.dist, relative(paths.src, file));
-		const checksum = fileChecksum(file);
+		const checksum = await fileChecksum(file);
 
-		bundleInfo.checksums[relative(paths.output, dest)];
+		bundleInfo.checksums[file] = checksum;
+
+		if (prevBundleInfo && prevBundleInfo.checksums[file] === checksum) {
+			continue;
+		}
+
+		console.log(file, 'Updated');
 
 		rootNames.push(file);
 	}
@@ -83,5 +90,6 @@ export default async function compileBack(cwd: string) {
 
 	program.emit();
 
+	await writeFile(paths.packagePath, JSON.stringify({ type: 'commonjs' }));
 	await writeFile(paths.bundleInfoPath, JSON.stringify(bundleInfo));
 }
