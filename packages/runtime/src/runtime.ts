@@ -1,8 +1,11 @@
 import { BundleInfo, schema } from './bundleInfo.js';
-import { ProcessedPages, processPage } from './render.js';
+import * as NotFoundModule from './pages/_404.js';
+import { ProcessedPage, processPage, renderPage } from './render.js';
+import { BackModule, BaseContext } from './types.js';
 import Ajv from 'ajv';
+import express from 'express';
 import { readFileSync } from 'fs';
-import { IncomingMessage, Server, ServerResponse } from 'http';
+import { Server } from 'http';
 import { join, resolve } from 'path';
 import semver from 'semver';
 
@@ -19,9 +22,9 @@ export function getPaths(cwd: string) {
 
 const ajv = new Ajv();
 
-export const { version } = <{ version: string }>(
-	JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'))
-);
+export const { version } = JSON.parse(
+	readFileSync(join(__dirname, '..', 'package.json'), 'utf-8')
+) as { version: string };
 
 export type DetachRuntime = () => void;
 
@@ -46,23 +49,60 @@ export default function attachRuntime(
 			`Runtime (v${version}) does not satify bundle (v${bundleInfo.version})`
 		);
 
+	const expressServer = express();
+
 	for (const dist of bundleInfo.dist) {
 		const script = require.resolve(resolve(paths.dist, dist));
 		delete require.cache[script];
 	}
 
-	const compiledPages: ProcessedPages = {};
-
-	function onRequest(req: IncomingMessage, res: ServerResponse) {}
+	let notFound: ProcessedPage;
 
 	for (const route in bundleInfo.pages) {
 		const src = resolve(cwd, bundleInfo.pages[route]);
-		compiledPages[src] = processPage(src);
+
+		const module: BackModule = require(src);
+
+		if (!module.default)
+			throw new Error(`Page ${src} did not satisfy BackModule`);
+
+		const page = processPage(module);
+
+		if (route === '/_404') {
+			notFound = page;
+		} else
+			expressServer.all(route, async (req, res, next) => {
+				const context: BaseContext = { req, res };
+
+				try {
+					await renderPage(page, context);
+				} catch (err) {
+					next(err);
+				}
+			});
 	}
 
-	server.on('request', onRequest);
+	notFound ||= processPage(NotFoundModule);
+
+	expressServer.use('*', async (req, res, next) => {
+		console.log('404');
+		const context: BaseContext = { req, res };
+
+		try {
+			await renderPage(notFound, context);
+		} catch (err) {
+			next(err);
+		}
+	});
+
+	expressServer.use((err, req, res, next) => {
+		console.log(err);
+		res.send('err');
+	});
+
+	server.on('request', expressServer);
 
 	return () => {
-		server.off('request', onRequest);
+		server.off('request', expressServer);
 	};
 }

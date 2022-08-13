@@ -21,7 +21,7 @@ export type GetServerSideProps<
 
 export interface BackModule<T extends Props = {}> {
 	default: BackPage<T>;
-	getServerSideProps: GetServerSideProps<T>;
+	getServerSideProps?: GetServerSideProps<T>;
 }
 
 export type AppPage = BackPage<{

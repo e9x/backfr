@@ -13,15 +13,7 @@ export interface ProcessedPage<T extends Props = {}> {
 	Page: BackPage<T>;
 }
 
-export type ProcessedPages = Record<string, ProcessedPage>;
-
-export function processPage(dist: string): ProcessedPage {
-	const module: BackModule = require(dist);
-
-	if (!module.default) {
-		throw new Error(`Page ${dist} did not satisfy BackModule`);
-	}
-
+export function processPage(module: BackModule): ProcessedPage {
 	const Page = module.default;
 	const getServerSideProps: GetServerSideProps =
 		module.getServerSideProps || (() => ({ props: {} }));
@@ -33,8 +25,8 @@ export function processPage(dist: string): ProcessedPage {
 }
 
 export async function renderPage(
-	context: BaseContext,
-	{ getServerSideProps, Page }: ProcessedPage
+	{ getServerSideProps, Page }: ProcessedPage,
+	context: BaseContext
 ) {
 	const result = await getServerSideProps(context);
 	renderToPipeableStream(<Page {...result.props} />).pipe(context.res);

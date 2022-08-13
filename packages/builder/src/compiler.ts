@@ -1,7 +1,7 @@
 import { Config } from './config.js';
 import runtime from '@backfr/runtime';
 import { createHash } from 'crypto';
-import { createReadStream, read } from 'fs';
+import { createReadStream } from 'fs';
 import { readdir, readFile, writeFile } from 'fs/promises';
 import glob from 'glob';
 import { dirname, join, relative } from 'path';
@@ -67,6 +67,8 @@ export default async function compileBack(cwd: string) {
 	for (const file of await globP('src/**/{*.tsx,*.jsx,*.ts,*.js}', { cwd })) {
 		const dest = join(paths.dist, relative(paths.src, file));
 		const checksum = fileChecksum(file);
+
+		bundleInfo.checksums[relative(paths.output, dest)];
 
 		rootNames.push(file);
 	}

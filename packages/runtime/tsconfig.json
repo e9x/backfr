@@ -5,7 +5,7 @@
 		"moduleResolution": "Node",
 		"module": "CommonJS",
 		"types": ["node"],
-		"jsx": "react",
+		"jsx": "react-jsx",
 		"outDir": "dist",
 		"esModuleInterop": true,
 		"noEmit": true
