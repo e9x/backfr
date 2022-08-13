@@ -1,0 +1,13 @@
+{
+	"compilerOptions": {
+		"target": "ESNext",
+		"lib": ["ESNext"],
+		"moduleResolution": "Node",
+		"module": "CommonJS",
+		"types": ["node"],
+		"jsx": "react",
+		"outDir": "dist",
+		"esModuleInterop": true,
+		"noEmit": true
+	}
+}
