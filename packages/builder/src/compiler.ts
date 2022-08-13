@@ -1,5 +1,5 @@
 import { Config } from './config.js';
-import { getPaths, BundleInfo } from '@backfr/runtime';
+import runtime from '@backfr/runtime';
 import { createHash } from 'crypto';
 import { createReadStream, read } from 'fs';
 import { readdir, readFile, writeFile } from 'fs/promises';
@@ -27,7 +27,7 @@ const fileChecksum = (file: string) =>
 	});
 
 export default async function compileBack(cwd: string) {
-	const paths = getPaths(cwd);
+	const paths = runtime.getPaths(cwd);
 
 	const configFile = (await readdir(cwd)).find(
 		(file) => file === 'back.config.js' || file === 'back.config.mjs'
@@ -37,10 +37,10 @@ export default async function compileBack(cwd: string) {
 
 	const { default: config }: { default: Config } = await import(configFile);
 
-	let prevBundleInfo: BundleInfo | void;
+	let prevBundleInfo: runtime.BundleInfo | void;
 
 	try {
-		const parsed: BundleInfo = JSON.parse(
+		const parsed: runtime.BundleInfo = JSON.parse(
 			await readFile(paths.bundleInfoPath, 'utf-8')
 		);
 
@@ -56,7 +56,7 @@ export default async function compileBack(cwd: string) {
 			throw err;
 	}
 
-	const bundleInfo: BundleInfo = {
+	const bundleInfo: runtime.BundleInfo = {
 		version,
 		pages: {},
 		checksums: {},

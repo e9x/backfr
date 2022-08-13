@@ -1,7 +1,7 @@
 export interface BundleInfo {
 	version: string;
 	pages: Record<string, string>;
-	dist: Record<string, string>;
+	dist: string[];
 	checksums: Record<string, string>;
 }
 

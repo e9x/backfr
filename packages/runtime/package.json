@@ -13,6 +13,11 @@
 		"ajv": "^8.11.0",
 		"commander": "^9.4.0",
 		"glob": "^8.0.3",
+		"react": "^18.2.0",
+		"react-dom": "^18.2.0",
 		"semver": "^7.3.7"
+	},
+	"devDependencies": {
+		"@types/react-dom": "^18.0.6"
 	}
 }

@@ -4,8 +4,6 @@ import Ajv from 'ajv';
 import { readFileSync } from 'fs';
 import { IncomingMessage, Server, ServerResponse } from 'http';
 import { join, resolve } from 'path';
-import React from 'react';
-import { renderToPipeableStream } from 'react-dom/server';
 import semver from 'semver';
 
 export function getPaths(cwd: string) {
@@ -59,7 +57,7 @@ export default function attachRuntime(
 
 	for (const route in bundleInfo.pages) {
 		const src = resolve(cwd, bundleInfo.pages[route]);
-		compiledPages[src] = processPage(src, compiledPages);
+		compiledPages[src] = processPage(src);
 	}
 
 	server.on('request', onRequest);
