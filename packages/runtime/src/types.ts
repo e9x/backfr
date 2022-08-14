@@ -3,7 +3,7 @@ import type { ComponentType } from 'react';
 
 export type Props = object;
 
-export type BackPage<P = {}> = ComponentType<P>;
+export type BackPage<P extends Props = {}> = ComponentType<P>;
 
 export interface BaseContext {
 	req: Request;

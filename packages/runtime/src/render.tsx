@@ -1,11 +1,12 @@
 import {
+	AppPage,
 	BackModule,
 	BackPage,
 	BaseContext,
+	DocumentPage,
 	GetServerSideProps,
 	Props,
 } from './types.js';
-import React from 'react';
 import { renderToPipeableStream } from 'react-dom/server';
 
 export interface ProcessedPage<T extends Props = {}> {
@@ -24,11 +25,33 @@ export function processPage(module: BackModule): ProcessedPage {
 	};
 }
 
-export async function renderPage(
+async function renderable(
 	{ getServerSideProps, Page }: ProcessedPage,
 	context: BaseContext
 ) {
 	const result = await getServerSideProps(context);
+	return <Page {...result.props} />;
+}
+
+export async function renderPage(
+	{ Page, getServerSideProps }: ProcessedPage,
+	App: AppPage,
+	context: BaseContext
+) {
+	const result = await getServerSideProps(context);
+
 	context.res.setHeader('content-type', 'text/html');
-	renderToPipeableStream(<Page {...result.props} />).pipe(context.res);
+	renderToPipeableStream(
+		<html>
+			<head>
+				<meta charSet="utf-8" />
+			</head>
+			<body>
+				<App Component={Page} pageProps={result.props} />
+			</body>
+		</html>,
+		{
+			namespaceURI: 'HTML',
+		}
+	).pipe(context.res);
 }

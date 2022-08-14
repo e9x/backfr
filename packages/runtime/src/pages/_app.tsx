@@ -1,6 +1,6 @@
 import { AppPage } from '../types.js';
 
-const MyApp: AppPage = ({ Component, pageProps }) => {
+const App: AppPage = ({ Component, pageProps }) => {
 	return (
 		<>
 			<h1>Default App</h1>
@@ -9,4 +9,4 @@ const MyApp: AppPage = ({ Component, pageProps }) => {
 	);
 };
 
-export default MyApp;
+export default App;

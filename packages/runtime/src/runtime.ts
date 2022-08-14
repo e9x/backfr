@@ -1,8 +1,8 @@
 import { BundleInfo, schema } from './bundleInfo.js';
 import * as NotFoundModule from './pages/_404.js';
-import * as AppModule from './pages/_app.js';
+import App from './pages/_app.js';
 import { ProcessedPage, processPage, renderPage } from './render.js';
-import { BackModule, BaseContext } from './types.js';
+import { AppPage, BackModule, BaseContext } from './types.js';
 import Ajv from 'ajv';
 import express from 'express';
 import { readFileSync } from 'fs';
@@ -67,7 +67,7 @@ export default function attachRuntime(
 	}
 
 	let notFound: ProcessedPage;
-	let app: ProcessedPage;
+	let app: AppPage;
 
 	for (const route in bundleInfo.pages) {
 		const src = resolve(cwd, bundleInfo.pages[route]);
@@ -77,31 +77,32 @@ export default function attachRuntime(
 		if (!module.default)
 			throw new Error(`Page ${src} did not satisfy BackModule`);
 
-		const page = processPage(module);
-
 		switch (route) {
 			case '/_404':
-				notFound = page;
+				notFound = processPage(module);
 				break;
 			case '/_app':
-				app = page;
+				app = module.default as AppPage;
 				break;
 			default:
-				expressServer.all(route, async (req, res, next) => {
-					const context: BaseContext = { req, res };
+				{
+					const page = processPage(module);
+					expressServer.all(route, async (req, res, next) => {
+						const context: BaseContext = { req, res };
 
-					try {
-						await renderPage(page, context);
-					} catch (err) {
-						next(err);
-					}
-				});
+						try {
+							await renderPage(page, app, context);
+						} catch (err) {
+							next(err);
+						}
+					});
+				}
 				break;
 		}
 	}
 
 	notFound ||= processPage(NotFoundModule);
-	app ||= processPage(AppModule);
+	app ||= App;
 
 	expressServer.use(express.static(paths.publicFiles));
 
@@ -110,7 +111,7 @@ export default function attachRuntime(
 		const context: BaseContext = { req, res };
 
 		try {
-			await renderPage(notFound, context);
+			await renderPage(notFound, app, context);
 		} catch (err) {
 			next(err);
 		}
