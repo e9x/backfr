@@ -2,7 +2,7 @@
 	"name": "@backfr/runtime",
 	"version": "1.0.0",
 	"description": "backfr node runtime",
-	"type": "module",
+	"type": "commonjs",
 	"main": "dist/index.js",
 	"bin": "dist/cli.js",
 	"scripts": {

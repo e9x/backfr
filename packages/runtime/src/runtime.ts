@@ -52,7 +52,7 @@ export default function attachRuntime(
 	const expressServer = express();
 
 	for (const dist of bundleInfo.dist) {
-		const script = require.resolve(resolve(paths.dist, dist));
+		const script = resolve(cwd, dist);
 		delete require.cache[script];
 	}
 
@@ -60,6 +60,7 @@ export default function attachRuntime(
 
 	for (const route in bundleInfo.pages) {
 		const src = resolve(cwd, bundleInfo.pages[route]);
+		console.log(src);
 
 		const module: BackModule = require(src);
 

@@ -2,9 +2,9 @@ import { Config } from './config.js';
 import runtime from '@backfr/runtime';
 import { createHash } from 'crypto';
 import { createReadStream } from 'fs';
-import { readdir, readFile, writeFile } from 'fs/promises';
+import { mkdir, readdir, readFile, writeFile } from 'fs/promises';
 import glob from 'glob';
-import { dirname, join, relative } from 'path';
+import { dirname, join, parse, relative, resolve } from 'path';
 import semver from 'semver';
 import ts from 'typescript';
 import { fileURLToPath } from 'url';
@@ -35,7 +35,15 @@ export default async function compileBack(cwd: string) {
 
 	if (!configFile) throw new Error('Config file missing');
 
-	const { default: config }: { default: Config } = await import(configFile);
+	const { default: config }: { default: Config } = await import(
+		resolve(cwd, configFile)
+	);
+
+	try {
+		await mkdir(paths.output);
+	} catch (err) {
+		if (err?.code !== 'EEXIST') throw err;
+	}
 
 	let prevBundleInfo: runtime.BundleInfo | void;
 
@@ -52,7 +60,7 @@ export default async function compileBack(cwd: string) {
 			prevBundleInfo = parsed;
 		}
 	} catch (err) {
-		if (!err || err.code !== 'ENOENT' || !(err instanceof SyntaxError))
+		if (!err && err.code !== 'ENOENT' && !(err instanceof SyntaxError))
 			throw err;
 	}
 
@@ -65,11 +73,35 @@ export default async function compileBack(cwd: string) {
 
 	const rootNames = [];
 
+	for (const file of await globP('src/pages/**/{*.tsx,*.jsx,*.ts,*.js}', {
+		cwd,
+	})) {
+		const parsed = parse(file);
+		const dest = join(
+			paths.dist,
+			relative(paths.src, join(parsed.dir, parsed.name + '.js'))
+		);
+		const route =
+			'/' +
+			relative(
+				paths.srcPages,
+				parsed.name === 'index' ? parsed.dir : join(parsed.dir, parsed.name)
+			);
+
+		bundleInfo.pages[route] = relative(cwd, dest);
+	}
+
 	for (const file of await globP('src/**/{*.tsx,*.jsx,*.ts,*.js}', { cwd })) {
-		const dest = join(paths.dist, relative(paths.src, file));
+		const parsed = parse(file);
+		const dest = join(
+			paths.dist,
+			relative(paths.src, join(parsed.dir, parsed.name + '.js'))
+		);
 		const checksum = await fileChecksum(file);
 
 		bundleInfo.checksums[file] = checksum;
+
+		bundleInfo.dist.push(relative(cwd, dest));
 
 		if (prevBundleInfo && prevBundleInfo.checksums[file] === checksum) {
 			continue;
@@ -83,7 +115,9 @@ export default async function compileBack(cwd: string) {
 	const program = ts.createProgram({
 		options: {
 			checkJs: false,
-			rootDir: cwd,
+			rootDir: paths.src,
+			outDir: paths.dist,
+			jsx: ts.JsxEmit.ReactJSX,
 		},
 		rootNames,
 	});
