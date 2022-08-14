@@ -19,12 +19,14 @@ export type GetServerSideProps<
 	context: C
 ) => Promise<GetServerSidePropsResult<T>> | GetServerSidePropsResult<T>;
 
-export interface BackModule<T extends Props = {}> {
-	default: BackPage<T>;
-	getServerSideProps?: GetServerSideProps<T>;
+export interface BackModule<P extends Props = {}> {
+	default: BackPage<P>;
+	getServerSideProps?: GetServerSideProps<P>;
 }
 
-export type AppPage = BackPage<{
+export interface AppProps extends Props {
 	Component: ComponentType<any>;
 	pageProps: any;
-}>;
+}
+
+export type AppPage = BackPage<AppProps>;

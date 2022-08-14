@@ -2,7 +2,7 @@ import { BundleInfo, schema } from './bundleInfo.js';
 import * as NotFoundModule from './pages/_404.js';
 import App from './pages/_app.js';
 import { ProcessedPage, processPage, renderPage } from './render.js';
-import { AppPage, BackModule, BaseContext } from './types.js';
+import { AppPage, AppProps, BackModule, BaseContext } from './types.js';
 import Ajv from 'ajv';
 import express from 'express';
 import { readFileSync } from 'fs';
@@ -40,23 +40,6 @@ export const { version } = JSON.parse(
 
 export type DetachRuntime = () => void;
 
-function requireComponent(
-	src: string,
-	bundleInfo: BundleInfo
-): { module: BackModule; css: string[] } {
-	const css: string[] = [];
-
-	require.extensions['.css'] = function (module, filename) {
-		bundleInfo;
-	};
-
-	const mod = require(src) as BackModule;
-
-	delete require.extensions['.css'];
-
-	return { module: mod, css };
-}
-
 export default function attachRuntime(
 	cwd: string,
 	server: Server
@@ -86,44 +69,47 @@ export default function attachRuntime(
 	}
 
 	let notFound: ProcessedPage;
-	let app: AppPage;
+	let app: ProcessedPage<AppProps>;
 
 	for (const route in bundleInfo.pages) {
 		const src = resolve(cwd, bundleInfo.pages[route]);
 
-		const { module, css } = requireComponent(src, bundleInfo);
-
-		if (!module.default)
-			throw new Error(`Page ${src} did not satisfy BackModule`);
+		const page = processPage(src, cwd, bundleInfo);
 
 		switch (route) {
 			case '/_404':
-				notFound = processPage(module);
+				notFound = page;
 				break;
 			case '/_app':
-				app = module.default as AppPage;
+				app = page as ProcessedPage<AppProps>;
 				break;
 			default:
-				{
-					const page = processPage(module);
-					expressServer.all(route, async (req, res, next) => {
-						const context: BaseContext = { req, res };
+				expressServer.all(route, async (req, res, next) => {
+					const context: BaseContext = { req, res };
 
-						try {
-							await renderPage(page, app, context);
-						} catch (err) {
-							next(err);
-						}
-					});
-				}
+					try {
+						await renderPage(page, app, context);
+					} catch (err) {
+						next(err);
+					}
+				});
 				break;
 		}
 	}
 
-	notFound ||= processPage(NotFoundModule);
-	app ||= App;
+	notFound ||= processPage(
+		join(__dirname, 'pages', '_404.js'),
+		cwd,
+		bundleInfo
+	);
+	app ||= processPage<AppProps>(
+		join(__dirname, 'pages', '_app.js'),
+		cwd,
+		bundleInfo
+	);
 
 	expressServer.use(express.static(paths.publicFiles));
+	expressServer.use('/static/', express.static(paths.outputStatic));
 
 	expressServer.use('*', async (req, res, next) => {
 		console.log('404');

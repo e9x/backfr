@@ -7,13 +7,13 @@ import { createServer } from 'http';
 
 const program = new Command();
 
-async function compileStages(cwd: string) {
-	await compileBack(cwd);
+async function compileStages(cwd: string, dev: boolean) {
+	await compileBack(cwd, dev);
 }
 
 program.command('build').action(async () => {
 	const cwd = process.cwd();
-	await compileStages(cwd);
+	await compileStages(cwd, false);
 });
 
 program
@@ -37,7 +37,7 @@ program
 		const update = async () => {
 			if (detachRuntime) detachRuntime();
 
-			await compileStages(cwd);
+			await compileStages(cwd, true);
 
 			try {
 				detachRuntime = runtime.attachRuntime(cwd, server);
