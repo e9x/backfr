@@ -6,9 +6,9 @@ import {
 	GetServerSideProps,
 	Props,
 } from './types.js';
-import { response } from 'express';
 import { renderToPipeableStream } from 'react-dom/server';
 import { Helmet } from 'react-helmet';
+import { PassThrough } from 'stream';
 
 export interface ProcessedPage<T extends Props = {}> {
 	getServerSideProps: GetServerSideProps<T>;
@@ -35,6 +35,17 @@ export async function renderPage(
 
 	context.res.setHeader('content-type', 'text/html');
 
+	const to = new PassThrough();
+
+	to.on('data', (chunk: Buffer) => {
+		context.res.write(chunk);
+	});
+
+	to.on('end', () => {
+		context.res.write(`</div></body></html>`);
+		context.res.end();
+	});
+
 	const stream = renderToPipeableStream(
 		<App Component={Page} pageProps={result.props} />,
 		{
@@ -50,13 +61,7 @@ export async function renderPage(
 					}${helmet.style}</head><body${helmet.bodyAttributes}><div id="root">`
 				);
 
-				const oEnd = context.res.end;
-
-				// @ts-ignore
-				context.res.end = () => {
-					oEnd.call(context.res, `</div></body></html>`);
-				};
-				stream.pipe(context.res);
+				stream.pipe(to);
 			},
 		}
 	);
