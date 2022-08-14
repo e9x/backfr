@@ -29,5 +29,6 @@ export async function renderPage(
 	context: BaseContext
 ) {
 	const result = await getServerSideProps(context);
+	context.res.setHeader('content-type', 'text/html');
 	renderToPipeableStream(<Page {...result.props} />).pipe(context.res);
 }

@@ -107,7 +107,7 @@ export default async function compileBack(cwd: string) {
 			continue;
 		}
 
-		console.log(file, 'Updated');
+		console.log('Updated', file);
 
 		rootNames.push(file);
 	}

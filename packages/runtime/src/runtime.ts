@@ -16,8 +16,17 @@ export function getPaths(cwd: string) {
 	const dist = join(output, 'dist');
 	const src = resolve(cwd, 'src');
 	const srcPages = join(src, 'pages');
+	const publicFiles = join(src, 'public');
 
-	return { output, bundleInfoPath, packagePath, dist, src, srcPages };
+	return {
+		output,
+		bundleInfoPath,
+		packagePath,
+		dist,
+		src,
+		publicFiles,
+		srcPages,
+	};
 }
 
 const ajv = new Ajv();
@@ -60,7 +69,6 @@ export default function attachRuntime(
 
 	for (const route in bundleInfo.pages) {
 		const src = resolve(cwd, bundleInfo.pages[route]);
-		console.log(src);
 
 		const module: BackModule = require(src);
 
@@ -84,6 +92,8 @@ export default function attachRuntime(
 	}
 
 	notFound ||= processPage(NotFoundModule);
+
+	expressServer.use(express.static(paths.publicFiles));
 
 	expressServer.use('*', async (req, res, next) => {
 		console.log('404');
