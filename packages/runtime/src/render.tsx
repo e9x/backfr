@@ -3,11 +3,12 @@ import {
 	BackModule,
 	BackPage,
 	BaseContext,
-	DocumentPage,
 	GetServerSideProps,
 	Props,
 } from './types.js';
+import { response } from 'express';
 import { renderToPipeableStream } from 'react-dom/server';
+import { Helmet } from 'react-helmet';
 
 export interface ProcessedPage<T extends Props = {}> {
 	getServerSideProps: GetServerSideProps<T>;
@@ -25,14 +26,6 @@ export function processPage(module: BackModule): ProcessedPage {
 	};
 }
 
-async function renderable(
-	{ getServerSideProps, Page }: ProcessedPage,
-	context: BaseContext
-) {
-	const result = await getServerSideProps(context);
-	return <Page {...result.props} />;
-}
-
 export async function renderPage(
 	{ Page, getServerSideProps }: ProcessedPage,
 	App: AppPage,
@@ -41,17 +34,30 @@ export async function renderPage(
 	const result = await getServerSideProps(context);
 
 	context.res.setHeader('content-type', 'text/html');
-	renderToPipeableStream(
-		<html>
-			<head>
-				<meta charSet="utf-8" />
-			</head>
-			<body>
-				<App Component={Page} pageProps={result.props} />
-			</body>
-		</html>,
+
+	const stream = renderToPipeableStream(
+		<App Component={Page} pageProps={result.props} />,
 		{
-			namespaceURI: 'HTML',
+			onAllReady() {
+				const helmet = Helmet.renderStatic();
+				context.res.write(
+					`<!doctype html><html ${
+						helmet.htmlAttributes
+					}><head><meta charSet="utf-8" />${helmet.base}${helmet.title
+						.toString()
+						.replace(/ data-react-helmet="true"/, '')}${helmet.meta}${
+						helmet.link
+					}${helmet.style}</head><body${helmet.bodyAttributes}><div id="root">`
+				);
+
+				const oEnd = context.res.end;
+
+				// @ts-ignore
+				context.res.end = () => {
+					oEnd.call(context.res, `</div></body></html>`);
+				};
+				stream.pipe(context.res);
+			},
 		}
-	).pipe(context.res);
+	);
 }

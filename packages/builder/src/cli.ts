@@ -35,12 +35,10 @@ program
 		let lastCompilation = Promise.resolve();
 
 		const update = async () => {
-			if (detachRuntime) {
-				detachRuntime();
-				detachRuntime = undefined;
-			}
+			if (detachRuntime) detachRuntime();
 
 			await compileStages(cwd);
+
 			try {
 				detachRuntime = runtime.attachRuntime(cwd, server);
 			} catch (err) {
