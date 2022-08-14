@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import compileBack from './compiler.js';
-import runtime from '@backfr/runtime';
+import { attachRuntime, DetachRuntime, getPaths } from '@backfr/runtime';
 import chokidar from 'chokidar';
 import { Command } from 'commander';
 import { createServer } from 'http';
@@ -24,14 +24,14 @@ program
 		port ??= isNaN(envPort) ? 3000 : envPort;
 
 		const cwd = process.cwd();
-		const paths = runtime.getPaths(cwd);
+		const paths = getPaths(cwd);
 		const watcher = chokidar.watch(cwd, {
 			ignored: [paths.output],
 			persistent: true,
 		});
 
 		const server = createServer();
-		let detachRuntime: runtime.DetachRuntime | undefined;
+		let detachRuntime: DetachRuntime | undefined;
 		let lastCompilation = Promise.resolve();
 
 		const update = async () => {
@@ -40,7 +40,7 @@ program
 			await compileStages(cwd, true);
 
 			try {
-				detachRuntime = runtime.attachRuntime(cwd, server);
+				detachRuntime = attachRuntime(cwd, server);
 			} catch (err) {
 				console.error('Failure attaching runtime:');
 				console.error(err);

@@ -1,4 +1,3 @@
-import { BundleInfo } from './bundleInfo.js';
 import {
 	AppPage,
 	BackModule,
@@ -7,7 +6,6 @@ import {
 	GetServerSideProps,
 	Props,
 } from './types.js';
-import { resolve } from 'path';
 import { renderToPipeableStream } from 'react-dom/server';
 import { Helmet } from 'react-helmet';
 import { PassThrough } from 'stream';
@@ -18,41 +16,36 @@ export interface ProcessedPage<P extends Props = {}> {
 	css: string[];
 }
 
+let lastModuleCSS: string[] | undefined;
+
 function requireComponent<P extends Props = {}>(
-	src: string,
-	cwd: string,
-	bundleInfo: BundleInfo
+	src: string
 ): { module: BackModule; css: string[] } {
 	const css: string[] = [];
-
-	require.extensions['.css'] = function (module, filename) {
-		console.log(filename);
-
-		for (const file in bundleInfo.webResources) {
-			console.log(resolve(cwd, file), filename);
-			if (resolve(file) === filename) {
-				css.push(bundleInfo.webResources[file]);
-			}
-		}
-	};
+	lastModuleCSS = css;
 
 	const mod = require(src) as BackModule<P>;
 	console.log('required', src);
 
-	// delete require.extensions['.css'];
+	lastModuleCSS = undefined;
 
 	return { module: mod, css };
 }
 
+export function exportCSS(staticPath: string) {
+	if (!lastModuleCSS) throw new Error('Unmanaged CSS import');
+	lastModuleCSS.push(staticPath);
+}
+
 export function processPage<P extends Props = {}>(
-	src: string,
-	cwd: string,
-	bundleInfo: BundleInfo
+	src: string
 ): ProcessedPage<P> {
-	const comp = requireComponent<P>(src, cwd, bundleInfo);
+	const comp = requireComponent<P>(src);
 
 	if (!comp.module.default)
 		throw new Error(`Page ${src} did not satisfy BackModule`);
+
+	console.log(comp.css);
 
 	return {
 		Page: comp.module.default as BackPage<P>,

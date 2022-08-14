@@ -1,14 +1,14 @@
 import { BundleInfo, schema } from './bundleInfo.js';
-import * as NotFoundModule from './pages/_404.js';
-import App from './pages/_app.js';
 import { ProcessedPage, processPage, renderPage } from './render.js';
-import { AppPage, AppProps, BackModule, BaseContext } from './types.js';
+import { AppProps, BaseContext } from './types.js';
 import Ajv from 'ajv';
 import express from 'express';
 import { readFileSync } from 'fs';
 import { Server } from 'http';
 import { join, resolve } from 'path';
 import semver from 'semver';
+
+export { exportCSS } from './render';
 
 export function getPaths(cwd: string) {
 	const output = join(cwd, '.back');
@@ -73,8 +73,9 @@ export default function attachRuntime(
 
 	for (const route in bundleInfo.pages) {
 		const src = resolve(cwd, bundleInfo.pages[route]);
+		console.log(src);
 
-		const page = processPage(src, cwd, bundleInfo);
+		const page = processPage(src);
 
 		switch (route) {
 			case '/_404':
@@ -97,16 +98,8 @@ export default function attachRuntime(
 		}
 	}
 
-	notFound ||= processPage(
-		join(__dirname, 'pages', '_404.js'),
-		cwd,
-		bundleInfo
-	);
-	app ||= processPage<AppProps>(
-		join(__dirname, 'pages', '_app.js'),
-		cwd,
-		bundleInfo
-	);
+	notFound ||= processPage(require.resolve('./pages/_404.js'));
+	app ||= processPage(require.resolve('./pages/_app.js'));
 
 	expressServer.use(express.static(paths.publicFiles));
 	expressServer.use('/static/', express.static(paths.outputStatic));
