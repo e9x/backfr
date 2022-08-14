@@ -1,4 +1,4 @@
-import { AppPage } from '@backfr/runtime';
+import { AppPage } from '../types.js';
 
 const MyApp: AppPage = ({ Component, pageProps }) => {
 	return (

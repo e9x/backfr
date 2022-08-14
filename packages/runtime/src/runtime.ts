@@ -1,5 +1,6 @@
 import { BundleInfo, schema } from './bundleInfo.js';
 import * as NotFoundModule from './pages/_404.js';
+import * as AppModule from './pages/_app.js';
 import { ProcessedPage, processPage, renderPage } from './render.js';
 import { BackModule, BaseContext } from './types.js';
 import Ajv from 'ajv';
@@ -66,6 +67,7 @@ export default function attachRuntime(
 	}
 
 	let notFound: ProcessedPage;
+	let app: ProcessedPage;
 
 	for (const route in bundleInfo.pages) {
 		const src = resolve(cwd, bundleInfo.pages[route]);
@@ -77,21 +79,29 @@ export default function attachRuntime(
 
 		const page = processPage(module);
 
-		if (route === '/_404') {
-			notFound = page;
-		} else
-			expressServer.all(route, async (req, res, next) => {
-				const context: BaseContext = { req, res };
+		switch (route) {
+			case '/_404':
+				notFound = page;
+				break;
+			case '/_app':
+				app = page;
+				break;
+			default:
+				expressServer.all(route, async (req, res, next) => {
+					const context: BaseContext = { req, res };
 
-				try {
-					await renderPage(page, context);
-				} catch (err) {
-					next(err);
-				}
-			});
+					try {
+						await renderPage(page, context);
+					} catch (err) {
+						next(err);
+					}
+				});
+				break;
+		}
 	}
 
 	notFound ||= processPage(NotFoundModule);
+	app ||= processPage(AppModule);
 
 	expressServer.use(express.static(paths.publicFiles));
 
