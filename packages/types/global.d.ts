@@ -1,11 +1,11 @@
 /// <reference types="node" />
-import type { BackPage } from './dist/types.js';
+import type { BackPage } from '@backfr/runtime';
 
 declare module '_app.*' {
 	export default BackPage;
 }
 
-declare module '*.module.css' {
+declare module '.css' {
 	const classes: { readonly [key: string]: string };
 	export default classes;
 }

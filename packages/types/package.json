@@ -1,0 +1,8 @@
+{
+	"name": "@backfr/types",
+	"version": "1.0.0",
+	"description": "backfr asset types",
+	"types": "global.d.ts",
+	"bin": "dist/cli.js",
+	"license": "ISC"
+}
