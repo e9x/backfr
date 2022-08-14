@@ -17,7 +17,7 @@ export function getPaths(cwd: string) {
 	const dist = join(output, 'dist');
 	const src = resolve(cwd, 'src');
 	const srcPages = join(src, 'pages');
-	const publicFiles = join(src, 'public');
+	const publicFiles = join(cwd, 'public');
 	const outputStatic = join(output, 'static');
 
 	return {
@@ -105,7 +105,6 @@ export default function attachRuntime(
 	expressServer.use('/static/', express.static(paths.outputStatic));
 
 	expressServer.use('*', async (req, res, next) => {
-		console.log('404');
 		const context: BaseContext = { req, res };
 
 		try {

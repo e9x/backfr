@@ -1,3 +1,12 @@
-export interface Config {}
+export interface Config {
+	sourceMap: boolean;
+}
 
-export const schema = {};
+export const schema = {
+	type: 'object',
+	properties: {
+		sourceMap: {
+			type: 'boolean',
+		},
+	},
+};

@@ -4,6 +4,7 @@ import { attachRuntime, DetachRuntime, getPaths } from '@backfr/runtime';
 import chokidar from 'chokidar';
 import { Command } from 'commander';
 import { createServer } from 'http';
+import { join } from 'path';
 
 const program = new Command();
 
@@ -25,10 +26,12 @@ program
 
 		const cwd = process.cwd();
 		const paths = getPaths(cwd);
-		const watcher = chokidar.watch(cwd, {
-			ignored: [paths.output],
-			persistent: true,
-		});
+		const watcher = chokidar.watch(
+			[join(cwd, 'back.config.js'), join(cwd, 'back.config.mjs'), paths.src],
+			{
+				persistent: true,
+			}
+		);
 
 		const server = createServer();
 		let detachRuntime: DetachRuntime | undefined;

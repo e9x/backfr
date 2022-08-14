@@ -1,14 +1,16 @@
 import freeImport from '../freeImport.js';
-import { Config } from './config.js';
+import { Config, schema } from './config.js';
 import { getPaths, BundleInfo } from '@backfr/runtime';
+import Ajv from 'ajv';
 import { readFileSync } from 'fs';
 import { mkdir, readdir, readFile, writeFile } from 'fs/promises';
 import glob from 'glob';
-import MiniCssExtractPlugin from 'mini-css-extract-plugin';
 import { join, parse, relative, resolve, sep } from 'path';
 import semver from 'semver';
 import { promisify } from 'util';
 import webpack from 'webpack';
+
+const ajv = new Ajv();
 
 const globP = promisify(glob);
 
@@ -43,9 +45,15 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 		resolve(cwd, configFile)
 	);
 
-	// VALIDATE CONFIG
+	const validate = ajv.compile<Config>(schema);
 
-	const shouldUseSourceMap = true;
+	if (!validate(config)) {
+		console.error(validate.errors);
+		throw new Error('Bad schema');
+	}
+
+	const sourceMap = isDevelopment || (config.sourceMap ?? true);
+
 	const publicUrlOrPath = '/';
 	const imageInlineSizeLimit = 10000;
 
@@ -77,35 +85,12 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 	const bundleInfo: BundleInfo = {
 		version,
 		pages: {},
-		checksums: {},
 		dist: [],
 	};
 
 	const javascript = await globP('src/**/{*.tsx,*.jsx,*.ts,*.js}', { cwd });
 
-	const styles = await globP('src/**/{*.css,*.scss}', { cwd });
-	// for (const file of await globP('src/**/*.*', { cwd })) {
-
-	/*for (const file of javascript) {
-		const parsed = parse(file);
-		const dest = join(
-			paths.dist,
-			relative(paths.src, join(parsed.dir, parsed.name + '.js'))
-		);
-		
-		bundleInfo.dist.push(relative(cwd, dest));
-
-		if (prevBundleInfo && prevBundleInfo.checksums[file] === checksum) {
-			continue;
-		}
-
-		console.log('Updated', file);
-
-		rootNames.push(file);
-	}*/
-
 	const entries: Record<string, string> = {};
-
 	const jsNames: Record<string, string> = {};
 
 	for (const js of javascript) {
@@ -116,6 +101,7 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 
 		console.log('Updated', js);
 		entries[idealName] = absolute;
+		bundleInfo.dist.push(relative(cwd, join(paths.dist, idealName + '.js')));
 	}
 
 	for (const js of await globP('src/pages/**/{*.tsx,*.jsx,*.ts,*.js}', {
@@ -134,7 +120,7 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 		bundleInfo.pages[route] = relative(cwd, dest);
 	}
 
-	const getStyleLoaders = (cssOptions: object, preProcessor?: string) => {
+	/*const getStyleLoaders = (cssOptions: object, preProcessor?: string) => {
 		const loaders: unknown[] = [
 			// require.resolve('style-loader'),
 			{
@@ -146,10 +132,6 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 					: {},
 			},
 			{
-				loader: require.resolve('./test.js'),
-				options: cssOptions,
-			},
-			/*{
 				// Options for PostCSS as we reference these options twice
 				// Adds vendor prefixing based on your specified browser support in
 				// package.json
@@ -174,16 +156,16 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 							],
 						],
 					},
-					sourceMap: isProduction ? shouldUseSourceMap : isDevelopment,
+					sourceMap: isProduction ? sourceMap : isDevelopment,
 				},
-			},*/
+			},
 		].filter(Boolean);
 		if (preProcessor) {
 			loaders.push(
 				{
 					loader: require.resolve('resolve-url-loader'),
 					options: {
-						sourceMap: isProduction ? shouldUseSourceMap : isDevelopment,
+						sourceMap: isProduction ? sourceMap : isDevelopment,
 						root: paths.src,
 					},
 				},
@@ -196,7 +178,7 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 			);
 		}
 		return loaders;
-	};
+	};*/
 
 	const compiler = webpack({
 		entry: entries,
@@ -219,15 +201,15 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 				type: 'commonjs',
 			},
 		},
+		devtool: sourceMap ? 'source-map' : 'none',
 		mode: isDevelopment ? 'development' : 'production',
 		module: {
 			strictExportPresence: true,
 			rules: <webpack.RuleSetRule[]>[
 				// Handle node_modules packages that contain sourcemaps
-				shouldUseSourceMap && {
+				sourceMap && {
 					enforce: 'pre',
-					exclude: /@babel(?:\/|\\{1,2})runtime/,
-					test: /\.(js|mjs|jsx|ts|tsx|css)$/,
+					// test: /\.(js|mjs|jsx|ts|tsx|css)$/,
 					loader: require.resolve('source-map-loader'),
 				},
 				{
@@ -300,9 +282,15 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 										name: '../static/css/[name].[contenthash:8].css',
 										public: '/static/css/[name].[contenthash:8].css',
 										module: false,
+										sourceMap: isProduction ? sourceMap : isDevelopment,
 									},
 								},
-								require.resolve('sass-loader'),
+								{
+									loader: require.resolve('sass-loader'),
+									options: {
+										sourceMap: isProduction ? sourceMap : isDevelopment,
+									},
+								},
 							],
 							// Don't consider CSS imports dead code even if the
 							// containing package claims to have no side effects.
@@ -341,7 +329,7 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 							exclude: cssModuleRegex,
 							use: getStyleLoaders({
 								importLoaders: 1,
-								sourceMap: isProduction ? shouldUseSourceMap : isDevelopment,
+								sourceMap: isProduction ? sourceMap : isDevelopment,
 								modules: {
 									mode: 'icss',
 								},
@@ -358,7 +346,7 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 							test: cssModuleRegex,
 							use: getStyleLoaders({
 								importLoaders: 1,
-								sourceMap: isProduction ? shouldUseSourceMap : isDevelopment,
+								sourceMap: isProduction ? sourceMap : isDevelopment,
 								modules: {
 									mode: 'local',
 									getLocalIdent: getIdealIdentifier,
@@ -374,7 +362,7 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 							use: getStyleLoaders(
 								{
 									importLoaders: 3,
-									sourceMap: isProduction ? shouldUseSourceMap : isDevelopment,
+									sourceMap: isProduction ? sourceMap : isDevelopment,
 									modules: {
 										mode: 'icss',
 									},
@@ -394,7 +382,7 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 							use: getStyleLoaders(
 								{
 									importLoaders: 3,
-									sourceMap: isProduction ? shouldUseSourceMap : isDevelopment,
+									sourceMap: isProduction ? sourceMap : isDevelopment,
 									modules: {
 										mode: 'local',
 										getLocalIdent: getIdealIdentifier,
@@ -444,8 +432,6 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 			else resolve(res);
 		})
 	);
-
-	console.log(res.toString());
 
 	await writeFile(paths.packagePath, JSON.stringify({ type: 'commonjs' }));
 	await writeFile(paths.bundleInfoPath, JSON.stringify(bundleInfo));

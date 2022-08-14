@@ -2,7 +2,6 @@ export interface BundleInfo {
 	version: string;
 	pages: Record<string, string>;
 	dist: string[];
-	checksums: Record<string, string>;
 }
 
 export const schema = {
@@ -19,14 +18,6 @@ export const schema = {
 				},
 			},
 		},
-		checksums: {
-			type: 'object',
-			patternProperties: {
-				'^.*$': {
-					type: 'string',
-				},
-			},
-		},
 		dist: {
 			type: 'array',
 			items: {
@@ -35,5 +26,5 @@ export const schema = {
 			uniqueItems: true,
 		},
 	},
-	required: ['version', 'pages', 'checksums', 'dist'],
+	required: ['version', 'pages', 'dist'],
 };
