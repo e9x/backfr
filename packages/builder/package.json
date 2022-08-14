@@ -11,10 +11,10 @@
 	"author": "",
 	"license": "ISC",
 	"dependencies": {
-		"@backfr/runtime": "file:packages/runtime",
 		"chokidar": "^3.5.3",
 		"commander": "^9.4.0",
 		"glob": "^8.0.3",
+		"sass": "^1.54.4",
 		"semver": "^7.3.7",
 		"typescript": "^4.7.4"
 	},

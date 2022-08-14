@@ -18,6 +18,7 @@ export function getPaths(cwd: string) {
 	const src = resolve(cwd, 'src');
 	const srcPages = join(src, 'pages');
 	const publicFiles = join(src, 'public');
+	const outputStatic = join(output, 'static');
 
 	return {
 		output,
@@ -26,6 +27,7 @@ export function getPaths(cwd: string) {
 		dist,
 		src,
 		publicFiles,
+		outputStatic,
 		srcPages,
 	};
 }
@@ -37,6 +39,23 @@ export const { version } = JSON.parse(
 ) as { version: string };
 
 export type DetachRuntime = () => void;
+
+function requireComponent(
+	src: string,
+	bundleInfo: BundleInfo
+): { module: BackModule; css: string[] } {
+	const css: string[] = [];
+
+	require.extensions['.css'] = function (module, filename) {
+		bundleInfo;
+	};
+
+	const mod = require(src) as BackModule;
+
+	delete require.extensions['.css'];
+
+	return { module: mod, css };
+}
 
 export default function attachRuntime(
 	cwd: string,
@@ -72,7 +91,7 @@ export default function attachRuntime(
 	for (const route in bundleInfo.pages) {
 		const src = resolve(cwd, bundleInfo.pages[route]);
 
-		const module: BackModule = require(src);
+		const { module, css } = requireComponent(src, bundleInfo);
 
 		if (!module.default)
 			throw new Error(`Page ${src} did not satisfy BackModule`);
