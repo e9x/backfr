@@ -1,6 +1,6 @@
 import freeImport from '../freeImport.js';
 import { Config, schema } from './config.js';
-import cssPlugin, { fileChecksum, sassPlugin } from './css-plugin.js';
+import cssPlugin, { fileChecksum } from './css-plugin.js';
 import { getPaths, BundleInfo } from '@backfr/runtime';
 import Ajv from 'ajv';
 import { readFileSync } from 'fs';
