@@ -32,7 +32,6 @@
 		"sass": "^1.54.4",
 		"sass-loader": "^13.0.2",
 		"semver": "^7.3.7",
-		"sorcery": "^0.10.0",
 		"source-map-loader": "^4.0.0",
 		"style-loader": "^3.3.1",
 		"tailwindcss": "^3.1.8",

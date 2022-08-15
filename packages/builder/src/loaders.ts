@@ -2,25 +2,15 @@ import { createFilter } from '@rollup/pluginutils';
 import { BinaryToTextEncoding, createHash } from 'crypto';
 import { parse as parseCSS, walk as walkCSS, CssNode } from 'css-tree';
 import { createReadStream } from 'fs';
-import { mkdir, readFile, writeFile } from 'fs/promises';
+import { mkdir, writeFile, readFile, copyFile } from 'fs/promises';
 import MagicString from 'magic-string';
 import { dirname } from 'path';
 import { Plugin } from 'rollup';
 import sass from 'sass';
-import sorcery from 'sorcery';
 
-interface CSSContext {
+interface AssetContext {
 	id: string;
 	contentHash: string;
-}
-
-interface CSSPluginOptions {
-	include: string;
-	module: string;
-	sass: string;
-	file(context: CSSContext): string;
-	public(context: CSSContext): string;
-	sourceMap: boolean;
 }
 
 export const fileChecksum = (
@@ -46,21 +36,69 @@ export const stringChecksum = (
 	return hash.digest(digest);
 };
 
-export default function cssPlugin(options: CSSPluginOptions): Plugin {
+export function assetPlugin(options: {
+	include: string;
+	file(context: AssetContext): string;
+	public(context: AssetContext): string;
+}): Plugin {
+	const filter = createFilter(options.include);
+
+	return {
+		name: 'asset-plugin',
+		resolveId(id) {
+			if (!filter(id)) return;
+			return id;
+		},
+		async load(id) {
+			if (!filter(id)) return;
+
+			const contentHash = await fileChecksum(id, 'md4', 'hex');
+			const context: AssetContext = { id, contentHash };
+
+			const filePath = options.file(context);
+			const publicPath = options.public(context);
+
+			try {
+				await mkdir(dirname(filePath), { recursive: true });
+			} catch (err) {
+				if (err?.code !== 'EEXIST') throw err;
+			}
+
+			await copyFile(id, filePath);
+
+			return {
+				code: `const url = ${JSON.stringify(publicPath)}; export default url;`,
+			};
+		},
+	};
+}
+
+export function cssPlugin(options: {
+	include: string;
+	module: string;
+	sass: string;
+	file(context: AssetContext): string;
+	public(context: AssetContext): string;
+	sourceMap: boolean;
+}): Plugin {
 	const filter = createFilter(options.include);
 	const sassFilter = createFilter(options.sass);
 	const moduleFilter = createFilter(options.module);
 
 	return {
-		name: 'CSS',
-		async transform(code, id) {
-			if (!filter(id)) return undefined;
+		name: 'css-plugin',
+		resolveId(id) {
+			if (!filter(id)) return;
+			return id;
+		},
+		async load(id) {
+			if (!filter(id)) return;
 
 			const isSass = sassFilter(id);
 			const isModule = moduleFilter(id);
 
-			const contentHash = stringChecksum(code, 'md4', 'hex');
-			const context: CSSContext = { id, contentHash };
+			const contentHash = await fileChecksum(id, 'md4', 'hex');
+			const context: AssetContext = { id, contentHash };
 
 			const filePath = options.file(context);
 			const fileMapPath = options.file(context) + '.map';
@@ -76,7 +114,7 @@ export default function cssPlugin(options: CSSPluginOptions): Plugin {
 				if (err?.code !== 'EEXIST') throw err;
 			}
 
-			let cssCode = code;
+			let cssCode = await readFile(id, 'utf-8');
 
 			if (isSass) {
 				const compilation = await sass.compileAsync(id, {
@@ -122,22 +160,12 @@ export default function cssPlugin(options: CSSPluginOptions): Plugin {
 				await writeFile(filePath, cssCode);
 			}
 
-			const mainMagic = new MagicString(code);
-
-			mainMagic.replace(/^[\s\S]*?$/g, '');
-
-			mainMagic.prependLeft(
-				0,
-				`import { exportCSS } from "@backfr/runtime"; exportCSS(${JSON.stringify(
+			return {
+				code: `import { exportCSS } from "@backfr/runtime"; exportCSS(${JSON.stringify(
 					publicPath
 				)}); const styles = ${JSON.stringify(
 					classNames
-				)}; export default styles;`
-			);
-
-			return {
-				code: mainMagic.toString(),
-				map: mainMagic.generateMap(),
+				)}; export default styles;`,
 			};
 		},
 	};

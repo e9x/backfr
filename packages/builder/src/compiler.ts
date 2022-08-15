@@ -1,6 +1,6 @@
 import freeImport from '../freeImport.js';
 import { Config, schema } from './config.js';
-import cssPlugin, { fileChecksum } from './css-plugin.js';
+import { cssPlugin, assetPlugin, fileChecksum } from './loaders.js';
 import { getPaths, BundleInfo } from '@backfr/runtime';
 import Ajv from 'ajv';
 import { readFileSync } from 'fs';
@@ -27,12 +27,6 @@ function getIdealIdentifier(id: string, extension: string = '') {
 		join(parsed.dir, parsed.name).replace(/[^a-z0-9@]/gi, '__') + extension
 	);
 }
-
-// style files regexes
-const cssRegex = /\.css$/;
-const cssModuleRegex = /\.module\.css$/;
-const sassRegex = /\.(scss|sass)$/;
-const sassModuleRegex = /\.module\.(scss|sass)$/;
 
 export default async function compileBack(cwd: string, isDevelopment: boolean) {
 	const isProduction = !isDevelopment;
@@ -196,10 +190,16 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 		const compiler = await rollup({
 			input: res,
 			plugins: [
-				sourcemaps(),
-				typescript({
-					cwd,
-					abortOnError: false,
+				assetPlugin({
+					include: 'src/**/{*.avif,*.bmp,*.gif,*.jpeg,*.jpg,*.png}',
+					file: ({ id, contentHash }) =>
+						join(
+							paths.outputStatic,
+							'css',
+							`${parse(id).name}.${contentHash.slice(-8)}.css`
+						),
+					public: ({ id, contentHash }) =>
+						`/static/css/${parse(id).name}.${contentHash.slice(-8)}.css`,
 				}),
 				cssPlugin({
 					sourceMap,
@@ -215,6 +215,11 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 						),
 					public: ({ id, contentHash }) =>
 						`/static/css/${parse(id).name}.${contentHash.slice(-8)}.css`,
+				}),
+				sourcemaps(),
+				typescript({
+					cwd,
+					abortOnError: false,
 				}),
 			],
 		});
