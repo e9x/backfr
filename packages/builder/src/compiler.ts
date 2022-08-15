@@ -60,7 +60,7 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 		if (err?.code !== 'EEXIST') throw err;
 	}
 
-	let prevBundleInfo: BundleInfo | void;
+	let prevBundleInfo: BundleInfo | undefined;
 
 	try {
 		const parsed: BundleInfo = JSON.parse(
@@ -89,18 +89,11 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 	const javascript = await globP('src/**/{*.tsx,*.jsx,*.ts,*.js}', { cwd });
 	const jsNames: Record<string, string> = {};
 
-	const compileJS: string[] = [];
-
 	for (const js of javascript) {
 		const idealName = getIdealIdentifier(js, '.js');
-		const checksum = await fileChecksum(js, 'sha256', 'base64');
 
 		jsNames[js] = idealName;
-		bundleInfo.checksums[js] = checksum;
 		bundleInfo.dist.push(relative(cwd, join(paths.dist, idealName)));
-
-		// can't easily lazy compile
-		compileJS.push(js);
 	}
 
 	for (const js of await globP('src/pages/**/{*.tsx,*.jsx,*.ts,*.js}', {
@@ -181,8 +174,36 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 
 	// make backjs a bunch of rollup plugins?
 
-	for (const js of compileJS) {
-		console.log(`Compiling ${js}...`);
+	for (const js of javascript) {
+		let reuseBuild = true;
+
+		if (prevBundleInfo && js in prevBundleInfo.checksums) {
+			const goalChecksums = prevBundleInfo.checksums[js];
+
+			for (const file in goalChecksums) {
+				const checksum = await fileChecksum(
+					resolve(cwd, file),
+					'sha256',
+					'base64'
+				);
+
+				if (checksum !== goalChecksums[file]) {
+					reuseBuild = false;
+					console.log(js, 'cannot be lazy compiled,', file, 'was updated');
+					break;
+				}
+			}
+		} else {
+			reuseBuild = false;
+		}
+
+		if (reuseBuild) {
+			console.log('Skip', js);
+			bundleInfo.checksums[js] = prevBundleInfo!.checksums[js];
+			continue;
+		}
+
+		console.log('Compile', js);
 
 		const res = resolve(cwd, js);
 		const file = join(paths.dist, getIdealIdentifier(js, '.js'));
@@ -239,12 +260,24 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 			],
 		});
 
-		await compiler.write({
+		const out = await compiler.write({
 			format: 'commonjs',
 			file,
 			exports: 'named',
 			sourcemap: true,
 		});
+
+		const record: Record<string, string> = {};
+
+		for (const file of compiler.watchFiles) {
+			record[relative(cwd, file)] = await fileChecksum(
+				file,
+				'sha256',
+				'base64'
+			);
+		}
+
+		bundleInfo.checksums[js] = record;
 	}
 
 	await writeFile(paths.packagePath, JSON.stringify({ type: 'commonjs' }));

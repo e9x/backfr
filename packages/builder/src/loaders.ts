@@ -177,8 +177,6 @@ export function svgPlugin(options: {
 							)}}`
 					)});`;
 
-			console.log(code);
-
 			const result = ts.transpileModule(code, {
 				fileName: 'inline.js',
 				compilerOptions: {

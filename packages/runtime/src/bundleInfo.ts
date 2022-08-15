@@ -2,7 +2,7 @@ export interface BundleInfo {
 	version: string;
 	pages: Record<string, string>;
 	dist: string[];
-	checksums: Record<string, string>;
+	checksums: Record<string, Record<string, string>>;
 }
 
 export const schema = {
@@ -23,7 +23,12 @@ export const schema = {
 			type: 'object',
 			patternProperties: {
 				'^.*$': {
-					type: 'string',
+					type: 'object',
+					patternProperties: {
+						'^.*$': {
+							type: 'string',
+						},
+					},
 				},
 			},
 		},
