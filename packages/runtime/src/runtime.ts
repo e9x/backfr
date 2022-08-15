@@ -1,4 +1,4 @@
-import { BundleInfo, schema } from './bundleInfo.js';
+import { BundleInfo, bundleInfoSchema } from './bundleInfo.js';
 import { ProcessedPage, processPage, renderPage } from './render.js';
 import { AppProps, BaseContext } from './types.js';
 import Ajv from 'ajv';
@@ -49,7 +49,7 @@ export default function attachRuntime(
 		readFileSync(paths.bundleInfoPath, 'utf-8')
 	);
 
-	const validate = ajv.compile<BundleInfo>(schema);
+	const validate = ajv.compile<BundleInfo>(bundleInfoSchema);
 
 	if (!validate(bundleInfo)) {
 		console.error(validate.errors);

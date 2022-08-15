@@ -1,7 +1,8 @@
 import freeImport from '../freeImport.js';
-import { Config, schema } from './config.js';
+import { Config, configSchema } from './config.js';
 import { cssPlugin, assetPlugin, svgPlugin, fileChecksum } from './loaders.js';
 import { getPaths, BundleInfo } from '@backfr/runtime';
+import { bundleInfoSchema } from '@backfr/runtime';
 import Ajv from 'ajv';
 import { readFileSync } from 'fs';
 import { mkdir, readdir, readFile, writeFile } from 'fs/promises';
@@ -10,7 +11,7 @@ import { join, parse, relative, resolve, sep } from 'path';
 import { rollup } from 'rollup';
 import sourcemaps from 'rollup-plugin-sourcemaps';
 import typescript from 'rollup-plugin-typescript2';
-import semver from 'semver';
+import semver, { valid } from 'semver';
 import { promisify } from 'util';
 
 const ajv = new Ajv();
@@ -45,7 +46,7 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 		default: Config;
 	};
 
-	const validate = ajv.compile<Config>(schema);
+	const validate = ajv.compile<Config>(configSchema);
 
 	if (!validate(config)) {
 		console.error(validate.errors);
@@ -67,13 +68,10 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 			await readFile(paths.bundleInfoPath, 'utf-8')
 		);
 
-		if (!semver.satisfies(version, parsed.version)) {
-			console.warn(
-				`Builder (v${version}) does not satisfy old bundle (v${parsed.version})`
-			);
-		} else {
+		const validate = ajv.compile<BundleInfo>(bundleInfoSchema);
+
+		if (validate(parsed) && semver.satisfies(version, parsed.version))
 			prevBundleInfo = parsed;
-		}
 	} catch (err) {
 		if (!err && err.code !== 'ENOENT' && !(err instanceof SyntaxError))
 			throw err;

@@ -2,7 +2,7 @@ export interface Config {
 	sourceMap: boolean;
 }
 
-export const schema = {
+export const configSchema = {
 	type: 'object',
 	properties: {
 		sourceMap: {

@@ -5,7 +5,7 @@ export interface BundleInfo {
 	checksums: Record<string, Record<string, string>>;
 }
 
-export const schema = {
+export const bundleInfoSchema = {
 	type: 'object',
 	properties: {
 		version: {
