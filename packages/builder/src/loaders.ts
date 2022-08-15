@@ -10,9 +10,14 @@ import sass from 'sass';
 import { optimize, OptimizedSvg, OptimizedError } from 'svgo';
 import ts from 'typescript';
 
-interface AssetContext {
+export interface AssetContext {
 	id: string;
 	contentHash: string;
+}
+
+export interface AssetLocation {
+	public: string;
+	file: string;
 }
 
 export const fileChecksum = (
@@ -38,10 +43,9 @@ export const stringChecksum = (
 	return hash.digest(digest);
 };
 
-export function assetPlugin(options: {
+export function mediaPlugin(options: {
 	include: string;
-	file(context: AssetContext): string;
-	public(context: AssetContext): string;
+	media(context: AssetContext): AssetLocation;
 }): Plugin {
 	const filter = createFilter(options.include);
 
@@ -57,19 +61,20 @@ export function assetPlugin(options: {
 			const contentHash = await fileChecksum(id, 'md4', 'hex');
 			const context: AssetContext = { id, contentHash };
 
-			const filePath = options.file(context);
-			const publicPath = options.public(context);
+			const location = options.media(context);
 
 			try {
-				await mkdir(dirname(filePath), { recursive: true });
+				await mkdir(dirname(location.file), { recursive: true });
 			} catch (err) {
 				if (err?.code !== 'EEXIST') throw err;
 			}
 
-			await copyFile(id, filePath);
+			await copyFile(id, location.file);
 
 			return {
-				code: `const url = ${JSON.stringify(publicPath)}; export default url;`,
+				code: `const url = ${JSON.stringify(
+					location.public
+				)}; export default url;`,
 			};
 		},
 	};
@@ -108,29 +113,9 @@ const convertStylesStringToObject = (stringStyles: string) => {
 	return styleObject;
 };
 
-/*camelcase
-
-typeof stringStyles === 'string'
-	? stringStyles.split(';').reduce((acc, style) => {
-			if (colonPosition === -1) {
-				return acc;
-			}
-
-			const camelCaseProperty = style
-					.substr(0, colonPosition)
-					.trim()
-					.replace(/^-ms-/, 'ms-')
-					.replace(/-./g, (c) => c.substr(1).toUpperCase()),
-				value = style.substr(colonPosition + 1).trim();
-
-			return value ? { ...acc, [camelCaseProperty]: value } : acc;
-	  }, {})
-	: {};*/
-
 export function svgPlugin(options: {
 	include: string;
-	file(context: AssetContext): string;
-	public(context: AssetContext): string;
+	svg(context: AssetContext): AssetLocation;
 }): Plugin {
 	const filter = createFilter(options.include);
 
@@ -144,27 +129,24 @@ export function svgPlugin(options: {
 			if (!filter(id)) return;
 
 			const contentHash = await fileChecksum(id, 'md4', 'hex');
-			const context: AssetContext = { id, contentHash };
-
-			const filePath = options.file(context);
-			const publicPath = options.public(context);
+			const location = options.svg({ id, contentHash });
 
 			try {
-				await mkdir(dirname(filePath), { recursive: true });
+				await mkdir(dirname(location.file), { recursive: true });
 			} catch (err) {
 				if (err?.code !== 'EEXIST') throw err;
 			}
 
 			const svg = await readFile(id);
 
-			await writeFile(filePath, svg);
+			await writeFile(location.file, svg);
 
 			const optimized = optimize(svg);
 
 			if (resultIsError(optimized)) throw optimized.modernError;
 
 			const code =
-				`const url = ${JSON.stringify(publicPath)};` +
+				`const url = ${JSON.stringify(location.public)};` +
 				`export default url; export const ReactComponent = (props) => (${(
 					optimized as OptimizedSvg
 				).data
@@ -195,15 +177,16 @@ export function svgPlugin(options: {
 
 export function cssPlugin(options: {
 	include: string;
-	module: string;
-	sass: string;
-	file(context: AssetContext): string;
-	public(context: AssetContext): string;
+	includeModule: string;
+	includeSass: string;
+	includeMedia: string;
+	css(context: AssetContext): AssetLocation;
+	media(context: AssetContext): AssetLocation;
 	sourceMap: boolean;
 }): Plugin {
 	const filter = createFilter(options.include);
-	const sassFilter = createFilter(options.sass);
-	const moduleFilter = createFilter(options.module);
+	const moduleFilter = createFilter(options.includeModule);
+	const mediaFilter = createFilter(options.includeMedia);
 
 	return {
 		name: 'css-plugin',
@@ -214,75 +197,108 @@ export function cssPlugin(options: {
 		async load(id) {
 			if (!filter(id)) return;
 
-			const isSass = sassFilter(id);
 			const isModule = moduleFilter(id);
 
 			const contentHash = await fileChecksum(id, 'md4', 'hex');
 			const context: AssetContext = { id, contentHash };
 
-			const filePath = options.file(context);
-			const fileMapPath = options.file(context) + '.map';
-			const publicPath = options.public(context);
+			const location = options.css(context);
 
 			const classNames: Record<string, string> = {};
 
-			let map: any;
-
 			try {
-				await mkdir(dirname(filePath), { recursive: true });
+				await mkdir(dirname(location.file), { recursive: true });
 			} catch (err) {
 				if (err?.code !== 'EEXIST') throw err;
 			}
 
 			let cssCode = await readFile(id, 'utf-8');
 
-			if (isSass) {
-				const compilation = await sass.compileAsync(id, {
-					sourceMap: options.sourceMap,
-					sourceMapIncludeSources: true,
-					style: 'compressed',
-				});
+			const compilation = await sass.compileAsync(id, {
+				sourceMap: options.sourceMap,
+				sourceMapIncludeSources: true,
+				style: 'compressed',
+			});
 
-				cssCode = compilation.css;
-				map = compilation.sourceMap;
-			}
+			cssCode = compilation.css;
+			const map = compilation.sourceMap;
 
-			if (isModule) {
-				const cssMagic = new MagicString(cssCode);
-				const cssTree = parseCSS(cssCode, { positions: true });
+			const cssMagic = new MagicString(cssCode);
+			const cssTree = parseCSS(cssCode, { positions: true });
 
-				walkCSS(cssTree, {
-					enter(node: CssNode) {
-						if (node.type === 'ClassSelector') {
-							const replaced = `${node.name}-${contentHash.slice(-8)}`;
+			const promises: Promise<void>[] = [];
 
-							classNames[node.name] = replaced;
+			walkCSS(cssTree, {
+				enter: (node: CssNode) => {
+					if (node.type === 'Url')
+						promises.push(
+							(async () => {
+								const value = <string>(<unknown>node.value);
+								const mediaID = await this.resolve(value, id);
 
-							cssMagic.overwrite(
-								node.loc.start.offset,
-								node.loc.end.offset,
-								`.${replaced}`
-							);
-						}
-					},
-				});
+								console.log(mediaID, value, id, mediaFilter(mediaID.id));
+								if (!mediaID || !mediaFilter(mediaID.id)) return;
 
-				cssCode = cssMagic.toString();
-			}
+								console.log(
+									node,
+									cssMagic.slice(node.loc.start.offset, node.loc.end.offset)
+								);
 
-			if (map) {
-				await writeFile(
-					filePath,
-					cssCode + `/*# sourceMappingURL=${publicPath}.map*/`
-				);
-				await writeFile(fileMapPath, JSON.stringify(map));
-			} else {
-				await writeFile(filePath, cssCode);
-			}
+								const contentHash = await fileChecksum(
+									mediaID.id,
+									'md4',
+									'hex'
+								);
+								const location = options.media({ id: mediaID.id, contentHash });
+
+								try {
+									await mkdir(dirname(location.file), { recursive: true });
+								} catch (err) {
+									if (err?.code !== 'EEXIST') throw err;
+								}
+
+								await copyFile(mediaID.id, location.file);
+
+								cssMagic.overwrite(
+									node.loc.start.offset,
+									node.loc.end.offset,
+									`url(${JSON.stringify(location.public)})`
+								);
+
+								// location.public
+								// cssMagic.overwrite;
+								// node.value;
+							})()
+						);
+
+					if (isModule && node.type === 'ClassSelector') {
+						const replaced = `${node.name}-${contentHash.slice(-8)}`;
+
+						classNames[node.name] = replaced;
+
+						cssMagic.overwrite(
+							node.loc.start.offset,
+							node.loc.end.offset,
+							`.${replaced}`
+						);
+					}
+				},
+			});
+
+			await Promise.all(promises);
+
+			cssCode = cssMagic.toString();
+
+			await writeFile(
+				location.file,
+				cssCode + `/*# sourceMappingURL=${location.public}.map*/`
+			);
+
+			await writeFile(location.file + '.map', JSON.stringify(map));
 
 			return {
 				code: `import { exportCSS } from "@backfr/runtime"; exportCSS(${JSON.stringify(
-					publicPath
+					location.public
 				)}); const styles = ${JSON.stringify(
 					classNames
 				)}; export default styles;`,
@@ -290,52 +306,3 @@ export function cssPlugin(options: {
 		},
 	};
 }
-
-/**
-	const options = this.getOptions();
-
-	const write = interpolateName(this, options.name, { content });
-	const publicPath = interpolateName(this, options.public, { content });
-
-	const classNames: Record<string, string> = {};
-
-	if (options.module) {
-		const magic = new MagicString(content.toString());
-		const tree = parse(content.toString(), { positions: true });
-
-		const replacement = (name: string) => {
-			const replaced = interpolateName(this, `${name}-[contenthash:8]`, {
-				content,
-			});
-			classNames[name] = replaced;
-			return replaced;
-		};
-
-		walk(tree, {
-			enter(node: CssNode) {
-				if (node.type === 'ClassSelector')
-					magic.overwrite(
-						node.loc.start.offset,
-						node.loc.end.offset,
-						`.${replacement(node.name)}`
-					);
-			},
-		});
-
-		const generated = magic.generateMap({
-			source: publicPath,
-			includeContent: true,
-		});
-
-		const merged = merge(generated, map);
-
-		map = merged;
-		content = magic.toString();
-	}
-
-	//@ts-ignore
-	this.emitFile(write, content, map);
-
-	return `require("@backfr/runtime").exportCSS(${JSON.stringify(
-		publicPath
-	)});module.exports=${JSON.stringify(classNames)}`;*/

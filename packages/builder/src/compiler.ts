@@ -1,6 +1,13 @@
 import freeImport from '../freeImport.js';
 import { Config, configSchema } from './config.js';
-import { cssPlugin, assetPlugin, svgPlugin, fileChecksum } from './loaders.js';
+import {
+	cssPlugin,
+	mediaPlugin,
+	svgPlugin,
+	fileChecksum,
+	AssetContext,
+	AssetLocation,
+} from './loaders.js';
 import { getPaths, BundleInfo } from '@backfr/runtime';
 import { bundleInfoSchema } from '@backfr/runtime';
 import Ajv from 'ajv';
@@ -142,6 +149,19 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 		const res = resolve(cwd, js);
 		const file = join(paths.dist, getIdealIdentifier(js, '.js'));
 
+		const media = ({ id, contentHash }: AssetContext): AssetLocation => ({
+			file: join(
+				paths.outputStatic,
+				'media',
+				`${parse(id).name}.${contentHash.slice(-8)}${parse(id).ext}`
+			),
+			public: `/static/media/${parse(id).name}.${contentHash.slice(-8)}${
+				parse(id).ext
+			}`,
+		});
+
+		const includeMedia = 'src/**/{*.avif,*.bmp,*.gif,*.jpeg,*.jpg,*.png}';
+
 		const compiler = await rollup({
 			input: res,
 			onwarn: (warning, next) => {
@@ -149,42 +169,41 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 				next(warning);
 			},
 			plugins: [
-				assetPlugin({
-					include: 'src/**/{*.avif,*.bmp,*.gif,*.jpeg,*.jpg,*.png}',
-					file: ({ id, contentHash }) =>
-						join(
-							paths.outputStatic,
-							'media',
-							`${parse(id).name}.${contentHash.slice(-8)}.css`
-						),
-					public: ({ id, contentHash }) =>
-						`/static/media/${parse(id).name}.${contentHash.slice(-8)}.css`,
+				mediaPlugin({
+					include: includeMedia,
+					media,
 				}),
 				cssPlugin({
 					sourceMap,
 					include:
 						'src/**/{*.module.scss,*.module.sass,*.module.css,*.scss,*.sass,*.css}',
-					sass: 'src/**/{*.scss,*.sass}',
-					module: 'src/**/{*.module.scss,*.module.sass,*.module.css}',
-					file: ({ id, contentHash }) =>
-						join(
+					includeSass: 'src/**/{*.scss,*.sass}',
+					includeModule: 'src/**/{*.module.scss,*.module.sass,*.module.css}',
+					includeMedia,
+					media,
+					css: ({ id, contentHash }) => ({
+						file: join(
 							paths.outputStatic,
 							'css',
 							`${parse(id).name}.${contentHash.slice(-8)}.css`
 						),
-					public: ({ id, contentHash }) =>
-						`/static/css/${parse(id).name}.${contentHash.slice(-8)}.css`,
+						public: `/static/css/${parse(id).name}.${contentHash.slice(
+							-8
+						)}.css`,
+					}),
 				}),
 				svgPlugin({
 					include: 'src/**/*.svg',
-					file: ({ id, contentHash }) =>
-						join(
+					svg: ({ id, contentHash }) => ({
+						file: join(
 							paths.outputStatic,
 							'media',
-							`${parse(id).name}.${contentHash.slice(-8)}.css`
+							`${parse(id).name}.${contentHash.slice(-8)}.svg`
 						),
-					public: ({ id, contentHash }) =>
-						`/static/media/${parse(id).name}.${contentHash.slice(-8)}.css`,
+						public: `/static/media/${parse(id).name}.${contentHash.slice(
+							-8
+						)}.svg`,
+					}),
 				}),
 				sourcemaps(),
 				typescript({
