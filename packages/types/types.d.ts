@@ -16,30 +16,36 @@ declare module '*.css' {}
 
 declare module '*.avif' {
 	const url: string;
-	export = url;
+	export default url;
 }
 
 declare module '*.bmp' {
 	const url: string;
-	export = url;
+	export default url;
 }
 
 declare module '*.gif' {
 	const url: string;
-	export = url;
+	export default url;
 }
 
 declare module '*.jpeg' {
 	const url: string;
-	export = url;
+	export default url;
 }
 
 declare module '*.jpg' {
 	const url: string;
-	export = url;
+	export default url;
 }
 
 declare module '*.png' {
 	const url: string;
-	export = url;
+	export default url;
+}
+
+declare module '*.svg' {
+	const url: string;
+	export const ReactComponent: React.ComponentType<React.SVGAttributes<{}>>;
+	export default url;
 }

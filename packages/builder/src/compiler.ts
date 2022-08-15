@@ -1,6 +1,6 @@
 import freeImport from '../freeImport.js';
 import { Config, schema } from './config.js';
-import { cssPlugin, assetPlugin, fileChecksum } from './loaders.js';
+import { cssPlugin, assetPlugin, svgPlugin, fileChecksum } from './loaders.js';
 import { getPaths, BundleInfo } from '@backfr/runtime';
 import Ajv from 'ajv';
 import { readFileSync } from 'fs';
@@ -199,11 +199,11 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 					file: ({ id, contentHash }) =>
 						join(
 							paths.outputStatic,
-							'css',
+							'media',
 							`${parse(id).name}.${contentHash.slice(-8)}.css`
 						),
 					public: ({ id, contentHash }) =>
-						`/static/css/${parse(id).name}.${contentHash.slice(-8)}.css`,
+						`/static/media/${parse(id).name}.${contentHash.slice(-8)}.css`,
 				}),
 				cssPlugin({
 					sourceMap,
@@ -219,6 +219,17 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 						),
 					public: ({ id, contentHash }) =>
 						`/static/css/${parse(id).name}.${contentHash.slice(-8)}.css`,
+				}),
+				svgPlugin({
+					include: 'src/**/*.svg',
+					file: ({ id, contentHash }) =>
+						join(
+							paths.outputStatic,
+							'media',
+							`${parse(id).name}.${contentHash.slice(-8)}.css`
+						),
+					public: ({ id, contentHash }) =>
+						`/static/media/${parse(id).name}.${contentHash.slice(-8)}.css`,
 				}),
 				sourcemaps(),
 				typescript({
