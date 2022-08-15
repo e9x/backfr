@@ -189,6 +189,10 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 
 		const compiler = await rollup({
 			input: res,
+			onwarn: (warning, next) => {
+				if (warning.code === 'UNRESOLVED_IMPORT') return;
+				next(warning);
+			},
 			plugins: [
 				assetPlugin({
 					include: 'src/**/{*.avif,*.bmp,*.gif,*.jpeg,*.jpg,*.png}',
