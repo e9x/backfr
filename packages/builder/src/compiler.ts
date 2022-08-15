@@ -1,13 +1,14 @@
 import freeImport from '../freeImport.js';
 import { Config, schema } from './config.js';
-import cssPlugin, { fileChecksum } from './css-plugin.js';
+import cssPlugin, { fileChecksum, sassPlugin } from './css-plugin.js';
 import { getPaths, BundleInfo } from '@backfr/runtime';
 import Ajv from 'ajv';
 import { readFileSync } from 'fs';
 import { mkdir, readdir, readFile, writeFile } from 'fs/promises';
 import glob from 'glob';
 import { join, parse, relative, resolve, sep } from 'path';
-import { rollup, Plugin } from 'rollup';
+import { rollup } from 'rollup';
+import sourcemaps from 'rollup-plugin-sourcemaps';
 import typescript from 'rollup-plugin-typescript2';
 import semver from 'semver';
 import { promisify } from 'util';
@@ -46,9 +47,9 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 
 	if (!configFile) throw new Error('Config file missing');
 
-	const { default: config }: { default: Config } = await freeImport(
-		resolve(cwd, configFile)
-	);
+	const { default: config } = (await freeImport(resolve(cwd, configFile))) as {
+		default: Config;
+	};
 
 	const validate = ajv.compile<Config>(schema);
 
@@ -58,9 +59,6 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 	}
 
 	const sourceMap = isDevelopment || (config.sourceMap ?? true);
-
-	const publicUrlOrPath = '/';
-	const imageInlineSizeLimit = 10000;
 
 	try {
 		await mkdir(paths.output);
@@ -94,18 +92,12 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 		checksums: {},
 	};
 
-	const styles = await globP('src/**/{*.css,*.scss,*.sass}', { cwd });
 	const javascript = await globP('src/**/{*.tsx,*.jsx,*.ts,*.js}', { cwd });
-
-	const absoluteStyles = styles.map((asset) => resolve(cwd, asset));
-	const absoluteJavascript = javascript.map((asset) => resolve(cwd, asset));
-
 	const jsNames: Record<string, string> = {};
 
 	const compileJS: string[] = [];
 
 	for (const js of javascript) {
-		const absolute = resolve(cwd, js);
 		const idealName = getIdealIdentifier(js, '.js');
 		const checksum = await fileChecksum(js, 'sha256', 'base64');
 
@@ -113,8 +105,8 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 		bundleInfo.checksums[js] = checksum;
 		bundleInfo.dist.push(relative(cwd, join(paths.dist, idealName)));
 
-		if (!prevBundleInfo || prevBundleInfo.checksums[js] !== checksum)
-			compileJS.push(js);
+		// can't easily lazy compile
+		compileJS.push(js);
 	}
 
 	for (const js of await globP('src/pages/**/{*.tsx,*.jsx,*.ts,*.js}', {
@@ -204,11 +196,17 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 		const compiler = await rollup({
 			input: res,
 			plugins: [
+				sourcemaps(),
 				typescript({
 					cwd,
 					abortOnError: false,
 				}),
 				cssPlugin({
+					sourceMap,
+					include:
+						'src/**/{*.module.scss,*.module.sass,*.module.css,*.scss,*.sass,*.css}',
+					sass: 'src/**/{*.scss,*.sass}',
+					module: 'src/**/{*.module.scss,*.module.sass,*.module.css}',
 					file: ({ id, contentHash }) =>
 						join(
 							paths.outputStatic,
@@ -225,6 +223,7 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 			format: 'commonjs',
 			file,
 			exports: 'named',
+			sourcemap: true,
 		});
 	}
 

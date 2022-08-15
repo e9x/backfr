@@ -18,14 +18,13 @@ export interface ProcessedPage<P extends Props = {}> {
 
 let lastModuleCSS: string[] | undefined;
 
-async function requireComponent<P extends Props = {}>(
+function requireComponent<P extends Props = {}>(
 	src: string
-): Promise<{ module: BackModule; css: string[] }> {
+): { module: BackModule; css: string[] } {
 	const css: string[] = [];
 	lastModuleCSS = css;
 
 	const mod = require(src) as BackModule<P>;
-	console.log(mod);
 
 	lastModuleCSS = undefined;
 
@@ -37,10 +36,10 @@ export function exportCSS(staticPath: string) {
 	lastModuleCSS.push(staticPath);
 }
 
-export async function processPage<P extends Props = {}>(
+export function processPage<P extends Props = {}>(
 	src: string
-): Promise<ProcessedPage<P>> {
-	const comp = await requireComponent<P>(src);
+): ProcessedPage<P> {
+	const comp = requireComponent<P>(src);
 
 	if (!comp.module.default)
 		throw new Error(`Page ${src} did not satisfy BackModule`);

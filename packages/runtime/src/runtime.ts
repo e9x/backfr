@@ -40,10 +40,10 @@ export const { version } = JSON.parse(
 
 export type DetachRuntime = () => void;
 
-export default async function attachRuntime(
+export default function attachRuntime(
 	cwd: string,
 	server: Server
-): Promise<DetachRuntime> {
+): DetachRuntime {
 	const paths = getPaths(cwd);
 	const bundleInfo: BundleInfo = JSON.parse(
 		readFileSync(paths.bundleInfoPath, 'utf-8')
@@ -73,9 +73,8 @@ export default async function attachRuntime(
 
 	for (const route in bundleInfo.pages) {
 		const src = resolve(cwd, bundleInfo.pages[route]);
-		console.log(src);
 
-		const page = await processPage(src);
+		const page = processPage(src);
 
 		switch (route) {
 			case '/_404':
@@ -98,8 +97,8 @@ export default async function attachRuntime(
 		}
 	}
 
-	notFound ||= await processPage(require.resolve('./pages/_404.js'));
-	app ||= await processPage(require.resolve('./pages/_app.js'));
+	notFound ||= processPage(require.resolve('./pages/_404.js'));
+	app ||= processPage(require.resolve('./pages/_app.js'));
 
 	expressServer.use(express.static(paths.publicFiles));
 	expressServer.use('/static/', express.static(paths.outputStatic));

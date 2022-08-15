@@ -1,14 +1,13 @@
-/*
-import { interpolateName } from 'loader-utils';
-import merge from 'merge-source-map';*/
 import { createFilter } from '@rollup/pluginutils';
 import { BinaryToTextEncoding, createHash } from 'crypto';
 import { parse as parseCSS, walk as walkCSS, CssNode } from 'css-tree';
 import { createReadStream } from 'fs';
-import { mkdir, writeFile } from 'fs/promises';
+import { mkdir, readFile, writeFile } from 'fs/promises';
 import MagicString from 'magic-string';
-import { dirname, parse } from 'path';
+import { dirname } from 'path';
 import { Plugin } from 'rollup';
+import sass from 'sass';
+import sorcery from 'sorcery';
 
 interface CSSContext {
 	id: string;
@@ -16,8 +15,12 @@ interface CSSContext {
 }
 
 interface CSSPluginOptions {
+	include: string;
+	module: string;
+	sass: string;
 	file(context: CSSContext): string;
 	public(context: CSSContext): string;
+	sourceMap: boolean;
 }
 
 export const fileChecksum = (
@@ -44,48 +47,28 @@ export const stringChecksum = (
 };
 
 export default function cssPlugin(options: CSSPluginOptions): Plugin {
-	const filter = createFilter('src/**/{*.css,*.module.css}');
+	const filter = createFilter(options.include);
+	const sassFilter = createFilter(options.sass);
+	const moduleFilter = createFilter(options.module);
 
 	return {
 		name: 'CSS',
 		async transform(code, id) {
 			if (!filter(id)) return undefined;
 
-			/*const transformResult: TransformationResult = {
-				code: result.code,
-				map: { mappings: '' },
-			};
+			const isSass = sassFilter(id);
+			const isModule = moduleFilter(id);
 
-			if (result.map) {
-				pluginOptions.sourceMapCallback?.(id, result.map);
-				transformResult.map = JSON.parse(result.map);
-			}*/
-
-			const classNames: Record<string, string> = {};
-
-			const cssMagic = new MagicString(code);
-			const cssTree = parseCSS(code, { positions: true });
 			const contentHash = stringChecksum(code, 'md4', 'hex');
-
-			walkCSS(cssTree, {
-				enter(node: CssNode) {
-					if (node.type === 'ClassSelector') {
-						const replaced = `${node.name}-${contentHash.slice(-8)}`;
-
-						classNames[node.name] = replaced;
-
-						cssMagic.overwrite(
-							node.loc.start.offset,
-							node.loc.end.offset,
-							`.${replaced}`
-						);
-					}
-				},
-			});
-
 			const context: CSSContext = { id, contentHash };
 
 			const filePath = options.file(context);
+			const fileMapPath = options.file(context) + '.map';
+			const publicPath = options.public(context);
+
+			const classNames: Record<string, string> = {};
+
+			let map: any;
 
 			try {
 				await mkdir(dirname(filePath), { recursive: true });
@@ -93,19 +76,68 @@ export default function cssPlugin(options: CSSPluginOptions): Plugin {
 				if (err?.code !== 'EEXIST') throw err;
 			}
 
-			console.log(filePath);
+			let cssCode = code;
 
-			// sourcemaps, check if options.sourceMap
-			await writeFile(filePath, cssMagic.toString());
+			if (isSass) {
+				const compilation = await sass.compileAsync(id, {
+					sourceMap: options.sourceMap,
+					sourceMapIncludeSources: true,
+					style: 'compressed',
+				});
 
-			const publicPath = options.public(context);
+				cssCode = compilation.css;
+				map = compilation.sourceMap;
+			}
 
-			return {
-				code: `import { exportCSS } from "@backfr/runtime"; exportCSS(${JSON.stringify(
+			if (isModule) {
+				const cssMagic = new MagicString(cssCode);
+				const cssTree = parseCSS(cssCode, { positions: true });
+
+				walkCSS(cssTree, {
+					enter(node: CssNode) {
+						if (node.type === 'ClassSelector') {
+							const replaced = `${node.name}-${contentHash.slice(-8)}`;
+
+							classNames[node.name] = replaced;
+
+							cssMagic.overwrite(
+								node.loc.start.offset,
+								node.loc.end.offset,
+								`.${replaced}`
+							);
+						}
+					},
+				});
+
+				cssCode = cssMagic.toString();
+			}
+
+			if (map) {
+				await writeFile(
+					filePath,
+					cssCode + `/*# sourceMappingURL=${publicPath}.map*/`
+				);
+				await writeFile(fileMapPath, JSON.stringify(map));
+			} else {
+				await writeFile(filePath, cssCode);
+			}
+
+			const mainMagic = new MagicString(code);
+
+			mainMagic.replace(/^[\s\S]*?$/g, '');
+
+			mainMagic.prependLeft(
+				0,
+				`import { exportCSS } from "@backfr/runtime"; exportCSS(${JSON.stringify(
 					publicPath
 				)}); const styles = ${JSON.stringify(
 					classNames
-				)}; export default styles;`,
+				)}; export default styles;`
+			);
+
+			return {
+				code: mainMagic.toString(),
+				map: mainMagic.generateMap(),
 			};
 		},
 	};

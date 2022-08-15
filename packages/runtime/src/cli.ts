@@ -14,7 +14,7 @@ program
 		const cwd = process.cwd();
 		const server = createServer();
 
-		await attachRuntime(cwd, server);
+		attachRuntime(cwd, server);
 
 		port ??= 3000;
 		host ??= '0.0.0.0';

@@ -43,7 +43,7 @@ program
 			await compileStages(cwd, true);
 
 			try {
-				detachRuntime = await attachRuntime(cwd, server);
+				detachRuntime = attachRuntime(cwd, server);
 			} catch (err) {
 				console.error('Failure attaching runtime:');
 				console.error(err);
