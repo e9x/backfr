@@ -1,4 +1,4 @@
-#!/usr/bin/env node --expose-internals
+#!/usr/bin/env node
 import attachRuntime, { version } from './runtime.js';
 import { Command } from 'commander';
 import { createServer } from 'http';
