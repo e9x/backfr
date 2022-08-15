@@ -11,7 +11,7 @@ import { join, parse, relative, resolve, sep } from 'path';
 import { rollup } from 'rollup';
 import sourcemaps from 'rollup-plugin-sourcemaps';
 import typescript from 'rollup-plugin-typescript2';
-import semver, { valid } from 'semver';
+import semver from 'semver';
 import { promisify } from 'util';
 
 const ajv = new Ajv();
@@ -30,8 +30,6 @@ function getIdealIdentifier(id: string, extension: string = '') {
 }
 
 export default async function compileBack(cwd: string, isDevelopment: boolean) {
-	const isProduction = !isDevelopment;
-
 	process.env.NODE_ENV = isDevelopment ? 'development' : 'production';
 
 	const paths = getPaths(cwd);
@@ -109,68 +107,6 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 
 		bundleInfo.pages[route] = relative(cwd, dest);
 	}
-
-	/*const getStyleLoaders = (cssOptions: object, preProcessor?: string) => {
-		const loaders: unknown[] = [
-			// require.resolve('style-loader'),
-			{
-				loader: MiniCssExtractPlugin.loader,
-				// css is located in `static/css`, use '../../' to locate index.html folder
-				// in production `paths.publicUrlOrPath` can be a relative path
-				options: publicUrlOrPath.startsWith('.')
-					? { publicPath: '../../' }
-					: {},
-			},
-			{
-				// Options for PostCSS as we reference these options twice
-				// Adds vendor prefixing based on your specified browser support in
-				// package.json
-				loader: 'postcss-loader',
-				options: {
-					postcssOptions: {
-						// Necessary for external CSS imports to work
-						// https://github.com/facebook/create-react-app/issues/2677
-						ident: 'postcss',
-						config: false,
-						plugins: [
-							'tailwindcss',
-							'postcss-flexbugs-fixes',
-							[
-								'postcss-preset-env',
-								{
-									autoprefixer: {
-										flexbox: 'no-2009',
-									},
-									stage: 3,
-								},
-							],
-						],
-					},
-					sourceMap: isProduction ? sourceMap : isDevelopment,
-				},
-			},
-		].filter(Boolean);
-		if (preProcessor) {
-			loaders.push(
-				{
-					loader: require.resolve('resolve-url-loader'),
-					options: {
-						sourceMap: isProduction ? sourceMap : isDevelopment,
-						root: paths.src,
-					},
-				},
-				{
-					loader: preProcessor,
-					options: {
-						sourceMap: true,
-					},
-				}
-			);
-		}
-		return loaders;
-	};*/
-
-	// make backjs a bunch of rollup plugins?
 
 	for (const js of javascript) {
 		let reuseBuild = true;
@@ -258,7 +194,7 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 			],
 		});
 
-		const out = await compiler.write({
+		await compiler.write({
 			format: 'commonjs',
 			file,
 			exports: 'named',
