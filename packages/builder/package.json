@@ -3,6 +3,7 @@
 	"version": "1.0.0-beta.1",
 	"description": "backfr build tool",
 	"type": "commonjs",
+	"types": "dist/types.d.ts",
 	"bin": "dist/cli.js",
 	"scripts": {
 		"build": "tsc",

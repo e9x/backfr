@@ -1,11 +1,15 @@
+import { RuntimeOptions, runtimeOptionsSchema } from './runtimeOptions.js';
+
 export interface RouteMeta {
 	route: string;
 	src: string;
 }
+
 export interface BundleInfo {
 	version: string;
 	pages: RouteMeta[];
 	dist: string[];
+	runtimeOptions: RuntimeOptions;
 	checksums: Record<string, Record<string, string>>;
 }
 
@@ -15,6 +19,7 @@ export const bundleInfoSchema = {
 		version: {
 			type: 'string',
 		},
+		runtimeOptions: runtimeOptionsSchema,
 		pages: {
 			type: 'array',
 			items: {
@@ -51,5 +56,7 @@ export const bundleInfoSchema = {
 			uniqueItems: true,
 		},
 	},
-	required: ['version', 'pages', 'checksums', 'dist'],
+	required: ['version', 'runtimeOptions', 'pages', 'checksums', 'dist'],
 };
+
+export * from './runtimeOptions.js';

@@ -123,10 +123,10 @@ export default function attachRuntime(
 		readFileSync(paths.bundleInfoPath, 'utf-8')
 	);
 
-	const validate = ajv.compile<BundleInfo>(bundleInfoSchema);
+	const validateBundleInfo = ajv.compile<BundleInfo>(bundleInfoSchema);
 
-	if (!validate(bundleInfo)) {
-		console.error(validate.errors);
+	if (!validateBundleInfo(bundleInfo)) {
+		console.error(validateBundleInfo.errors);
 		throw new Error('Bad schema');
 	}
 
@@ -136,6 +136,9 @@ export default function attachRuntime(
 		);
 
 	const expressServer = express();
+
+	if (!bundleInfo.runtimeOptions.poweredByHeader)
+		expressServer.disable('x-powered-by');
 
 	for (const dist of bundleInfo.dist) {
 		const script = resolve(cwd, dist);

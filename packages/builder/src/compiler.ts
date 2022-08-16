@@ -8,7 +8,12 @@ import {
 	AssetContext,
 	AssetLocation,
 } from './loaders.js';
-import { getPaths, BundleInfo, RouteMeta } from '@backfr/runtime';
+import {
+	getPaths,
+	BundleInfo,
+	RouteMeta,
+	RuntimeOptions,
+} from '@backfr/runtime';
 import { bundleInfoSchema } from '@backfr/runtime';
 import { createFilter } from '@rollup/pluginutils';
 import Ajv from 'ajv';
@@ -49,10 +54,10 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 		default: Config;
 	};
 
-	const validate = ajv.compile<Config>(configSchema);
+	const validateConfig = ajv.compile<Config>(configSchema);
 
-	if (!validate(config)) {
-		console.error(validate.errors);
+	if (!validateConfig(config)) {
+		console.error(validateConfig.errors);
 		throw new Error('Bad schema');
 	}
 
@@ -80,8 +85,12 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 			throw err;
 	}
 
+	config.runtimeOptions ||= {};
+	config.runtimeOptions.poweredByHeader ??= true;
+
 	const bundleInfo: BundleInfo = {
 		version,
+		runtimeOptions: <RuntimeOptions>config.runtimeOptions,
 		pages: [],
 		dist: [],
 		checksums: {},
@@ -311,7 +320,7 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 						)}.svg`,
 					}),
 				}),
-				sourcemaps(),
+				sourceMap && sourcemaps(),
 				typescript({
 					cwd,
 					tsconfig: tsConfigFile,
