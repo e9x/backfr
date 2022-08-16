@@ -23,7 +23,7 @@ for (const pkg of packages.map((pk) => `packages/${pk}/package.json`)) {
 
 	for (const pn of packageNames) {
 		if (pn in data.dependencies) {
-			data.dependencies[pn] = version;
+			data.dependencies[pn] = '^' + version;
 		}
 	}
 
@@ -35,7 +35,17 @@ const lockfile = 'package-lock.json';
 const data = JSON.parse(await readFile(lockfile));
 
 for (const pkg of ['', ...packages.map((pkg) => `packages/${pkg}`)]) {
-	data.packages[pkg].version = version;
+	const entry = data.packages[pkg];
+
+	entry.version = version;
+
+	if (!entry.requires) continue;
+
+	for (const pn of packageNames) {
+		if (pn in entry.dependencies) {
+			entry.requires[pn] = '^' + version;
+		}
+	}
 }
 
 data.version = version;
