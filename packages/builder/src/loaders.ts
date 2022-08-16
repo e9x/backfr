@@ -236,13 +236,7 @@ export function cssPlugin(options: {
 								const value = <string>(<unknown>node.value);
 								const mediaID = await this.resolve(value, id);
 
-								console.log(mediaID, value, id, mediaFilter(mediaID.id));
 								if (!mediaID || !mediaFilter(mediaID.id)) return;
-
-								console.log(
-									node,
-									cssMagic.slice(node.loc.start.offset, node.loc.end.offset)
-								);
 
 								const contentHash = await fileChecksum(
 									mediaID.id,
