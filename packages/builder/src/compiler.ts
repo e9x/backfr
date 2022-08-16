@@ -194,7 +194,6 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 	const mediaFilter = createFilter(includeMedia);
 	const svgFilter = createFilter(includeSVG);
 
-	console.time('comp');
 	for (const js of javascript) {
 		let reuseBuild = true;
 
@@ -314,7 +313,6 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 
 		bundleInfo.checksums[js] = record;
 	}
-	console.timeEnd('comp');
 
 	await writeFile(paths.packagePath, JSON.stringify({ type: 'commonjs' }));
 	await writeFile(paths.bundleInfoPath, JSON.stringify(bundleInfo));
