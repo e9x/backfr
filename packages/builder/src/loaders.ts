@@ -283,13 +283,15 @@ export function cssPlugin(options: {
 
 			cssCode = cssMagic.toString();
 
-			await writeFile(
-				location.file,
-				cssCode + `/*# sourceMappingURL=${location.public}.map*/`
-			);
-
-			if (map && options.sourceMap)
+			if (map && options.sourceMap) {
+				await writeFile(
+					location.file,
+					cssCode + `/*# sourceMappingURL=${location.public}.map*/`
+				);
 				await writeFile(location.file + '.map', JSON.stringify(map));
+			} else {
+				await writeFile(location.file, cssCode);
+			}
 
 			return {
 				code: `import { exportCSS } from "backfr"; exportCSS(${JSON.stringify(
