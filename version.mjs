@@ -16,6 +16,20 @@ for (const pkg of [
 	await writeFile(pkg, JSON.stringify(data, null, '\t') + '\n');
 }
 
+for (const pkg of packages.map((pk) => `packages/${pk}/package.json`)) {
+	const data = JSON.parse(await readFile(pkg));
+
+	if (!data.dependencies) continue;
+
+	for (const pn of packageNames) {
+		if (pn in data.dependencies) {
+			data.dependencies[pn] = version;
+		}
+	}
+
+	await writeFile(pkg, JSON.stringify(data, null, '\t') + '\n');
+}
+
 const lockfile = 'package-lock.json';
 
 const data = JSON.parse(await readFile(lockfile));
