@@ -15,17 +15,17 @@ Serverside rendering on crack!
 
 ## CLI
 
-Start the development server:
-```
-npx @backfr/builder dev
-```
-
-Build for production:
-```
-npx @backfr/builder build
+### Start the development server:
+```sh
+$ backfr-builder dev
 ```
 
-Start:
+### Build for production:
+```sh
+$ backfr-builder build
 ```
-npx @backfr/runtime
+
+### Start:
+```sh
+$ backfr
 ```
