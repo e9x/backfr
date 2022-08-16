@@ -30,3 +30,16 @@ export interface AppProps extends Props {
 }
 
 export type AppPage = BackPage<AppProps>;
+
+export interface ErrorProps extends Props {
+	statusCode: number;
+	title: string;
+}
+
+export interface ErrorCodeProps extends Props {
+	title: string;
+}
+
+export type ErrorCodePage = BackPage<ErrorCodeProps>;
+
+export type ErrorPage = BackPage<ErrorProps>;

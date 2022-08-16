@@ -1,10 +1,12 @@
 import { BundleInfo, bundleInfoSchema } from './bundleInfo.js';
 import { ProcessedPage, processPage, renderPage } from './render.js';
-import { AppProps, BaseContext } from './types.js';
+import { AppProps, BaseContext, ErrorCodeProps, ErrorProps } from './types.js';
 import Ajv from 'ajv';
 import express from 'express';
 import { readFileSync } from 'fs';
+import { STATUS_CODES } from 'http';
 import { Server } from 'http';
+import createError from 'http-errors';
 import { join, resolve } from 'path';
 import semver from 'semver';
 
@@ -70,15 +72,28 @@ export default function attachRuntime(
 
 	let notFound: ProcessedPage;
 	let app: ProcessedPage<AppProps>;
+	let error: ProcessedPage<ErrorProps>;
+
+	const errorCodePages = new Map<number, ProcessedPage<ErrorCodeProps>>();
 
 	for (const route in bundleInfo.pages) {
 		const src = resolve(cwd, bundleInfo.pages[route]);
 
 		const page = processPage(src);
 
+		const [, errorCode] = route.match(/^\/_(\d{3})$/) || [];
+
+		if (errorCode) {
+			errorCodePages.set(
+				parseInt(errorCode),
+				page as ProcessedPage<ErrorCodeProps>
+			);
+			continue;
+		}
+
 		switch (route) {
-			case '/_404':
-				notFound = page;
+			case '/_error':
+				error = page as ProcessedPage<ErrorProps>;
 				break;
 			case '/_app':
 				app = page as ProcessedPage<AppProps>;
@@ -88,8 +103,10 @@ export default function attachRuntime(
 					const context: BaseContext = { req, res };
 
 					try {
-						await renderPage(page, app, context);
+						const result = await error.getServerSideProps(context);
+						await renderPage(page, result.props, app, context);
 					} catch (err) {
+						console.log(err);
 						next(err);
 					}
 				});
@@ -97,26 +114,62 @@ export default function attachRuntime(
 		}
 	}
 
-	notFound ||= processPage(require.resolve('./pages/_404.js'));
+	if (!error) {
+		if (!errorCodePages.has(404))
+			errorCodePages.set(404, processPage(require.resolve('./pages/_404.js')));
+
+		error ||= processPage(require.resolve('./pages/_error.js'));
+	}
+
 	app ||= processPage(require.resolve('./pages/_app.js'));
 
 	expressServer.use(express.static(paths.publicFiles));
 	expressServer.use('/static/', express.static(paths.outputStatic));
 
-	expressServer.use('*', async (req, res, next) => {
-		const context: BaseContext = { req, res };
-
-		try {
-			await renderPage(notFound, app, context);
-		} catch (err) {
-			next(err);
-		}
+	expressServer.use('*', () => {
+		throw new createError.NotFound();
 	});
 
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	expressServer.use((err, req, res, next) => {
-		console.log(err);
-		res.send('err');
+	expressServer.use(async (err, req, res, next) => {
+		const context: BaseContext = { req, res };
+
+		const message = err?.message;
+		let expose = false;
+		let statusCode = 500;
+
+		if (createError.isHttpError(err)) {
+			statusCode = err.statusCode;
+			expose = err.expose !== false;
+		}
+
+		const title = expose ? message : STATUS_CODES[statusCode] || '';
+
+		try {
+			if (errorCodePages.has(statusCode)) {
+				await renderPage(
+					errorCodePages.get(statusCode)!,
+					{
+						title,
+					},
+					app,
+					context
+				);
+			} else {
+				await renderPage(
+					error,
+					{
+						statusCode,
+						title,
+					},
+					app,
+					context
+				);
+			}
+		} catch (err) {
+			console.log(err);
+			res.send('');
+		}
 	});
 
 	server.on('request', expressServer);

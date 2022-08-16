@@ -169,7 +169,9 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 	let errorCount = 0;
 	for (const r of res) errorCount += r.errorCount;
 
-	console.log(formatter.format(res));
+	const formatted = await formatter.format(res);
+
+	console.log(formatted.trim());
 
 	if (errorCount)
 		throw new Error('Fix eslint errors before trying to compile again.');
