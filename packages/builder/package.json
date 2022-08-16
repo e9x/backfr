@@ -23,6 +23,7 @@
 		"chokidar": "^3.5.3",
 		"commander": "^9.4.0",
 		"css-tree": "^2.2.0",
+		"eslint": "^8.22.0",
 		"file-loader": "^6.2.0",
 		"glob": "^8.0.3",
 		"loader-utils": "^3.2.0",

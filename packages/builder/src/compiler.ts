@@ -11,6 +11,7 @@ import {
 import { getPaths, BundleInfo } from '@backfr/runtime';
 import { bundleInfoSchema } from '@backfr/runtime';
 import Ajv from 'ajv';
+import { ESLint } from 'eslint';
 import { readFileSync } from 'fs';
 import { mkdir, readdir, readFile, writeFile } from 'fs/promises';
 import glob from 'glob';
@@ -164,6 +165,21 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 		throw new Error(`tsconfig.jsx must be "react-jsx". Incompatible project.`);
 	}
 
+	const lint = new ESLint({ cwd });
+
+	// fake async api haha
+	const res = await lint.lintFiles(javascript);
+	const formatter = await lint.loadFormatter();
+
+	let errorCount = 0;
+	for (const r of res) errorCount += r.errorCount;
+
+	console.log(formatter.format(res));
+
+	if (errorCount) {
+		throw new Error('Fix eslint errors before trying to compile again.');
+	}
+
 	for (const js of javascript) {
 		let reuseBuild = true;
 
@@ -258,7 +274,6 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 				typescript({
 					cwd,
 					tsconfig: tsConfigFile,
-					abortOnError: false,
 				}),
 			],
 		});
