@@ -20,10 +20,11 @@ program.action(async () => {
 
 program
 	.command('dev')
-	.option('-p, --port', 'Port')
+	.option('-p, --port <port>', 'Port')
 	.action(async ({ port }: { port?: number }) => {
 		const envPort = parseInt(process.env.PORT);
-		port ??= isNaN(envPort) ? 3000 : envPort;
+		if (!isNaN(envPort)) port ??= envPort;
+		port ??= 3000;
 
 		const cwd = process.cwd();
 		const paths = getPaths(cwd);
