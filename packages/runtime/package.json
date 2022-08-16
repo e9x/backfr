@@ -17,6 +17,10 @@
 		"type": "git",
 		"url": "https://github.com/e9x/backfr.git"
 	},
+	"keywords": [
+		"next.js alternative",
+		"ssr"
+	],
 	"homepage": "https://github.com/e9x/backfr/tree/master/packages/builder",
 	"author": "",
 	"license": "ISC",
