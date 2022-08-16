@@ -1,13 +1,15 @@
 {
 	"name": "backfr-builder",
-	"version": "1.0.0-beta.1",
+	"version": "1.0.0-beta.2",
 	"description": "backfr build tool",
 	"type": "commonjs",
 	"types": "dist/types.d.ts",
 	"bin": "bin.js",
 	"files": [
 		"dist",
-		"bin.js"
+		"bin.js",
+		"freeImport.js",
+		"freeImport.d.js"
 	],
 	"scripts": {
 		"build": "tsc",
@@ -29,7 +31,7 @@
 		"@svgr/webpack": "^6.3.1",
 		"ajv": "^8.11.0",
 		"babel-preset-react-app": "^10.0.1",
-		"backfr": "^1.0.0-beta.1",
+		"backfr": "^1.0.0-beta.2",
 		"chokidar": "^3.5.3",
 		"commander": "^9.4.0",
 		"css-tree": "^2.2.0",
