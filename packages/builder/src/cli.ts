@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import compileBack from './compiler.js';
 import { attachRuntime, DetachRuntime, getPaths } from '@backfr/runtime';
 import chokidar from 'chokidar';

@@ -4,7 +4,11 @@
 	"description": "backfr build tool",
 	"type": "commonjs",
 	"types": "dist/types.d.ts",
-	"bin": "dist/cli.js",
+	"bin": "cli.js",
+	"files": [
+		"dist",
+		"cli.js"
+	],
 	"scripts": {
 		"build": "tsc",
 		"build:watch": "tsc -w"

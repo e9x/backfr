@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import attachRuntime, { version } from './runtime.js';
 import { Command } from 'commander';
 import { expand } from 'dotenv-expand';
