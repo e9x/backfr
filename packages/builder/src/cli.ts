@@ -39,8 +39,8 @@ program
 			try {
 				await compileBack(cwd, true);
 				detachRuntime = attachRuntime(cwd, server);
+				console.log('Runtime attached');
 			} catch (err) {
-				console.error('Failure attaching runtime:');
 				console.error(err);
 			}
 		};
