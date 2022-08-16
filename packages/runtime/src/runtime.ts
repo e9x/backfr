@@ -113,6 +113,7 @@ export default function attachRuntime(
 		}
 	});
 
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	expressServer.use((err, req, res, next) => {
 		console.log(err);
 		res.send('err');

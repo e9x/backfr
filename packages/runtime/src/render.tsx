@@ -24,6 +24,7 @@ function requireComponent<P extends Props = {}>(
 	const css: string[] = [];
 	lastModuleCSS = css;
 
+	// eslint-disable-next-line @typescript-eslint/no-var-requires
 	const mod = require(src) as BackModule<P>;
 
 	lastModuleCSS = undefined;

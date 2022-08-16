@@ -10,11 +10,13 @@ import {
 } from './loaders.js';
 import { getPaths, BundleInfo } from '@backfr/runtime';
 import { bundleInfoSchema } from '@backfr/runtime';
+import { createFilter } from '@rollup/pluginutils';
 import Ajv from 'ajv';
 import { ESLint } from 'eslint';
 import { readFileSync } from 'fs';
 import { mkdir, readdir, readFile, writeFile } from 'fs/promises';
 import glob from 'glob';
+import { createRequire } from 'module';
 import { dirname, join, parse, relative, resolve, sep } from 'path';
 import { rollup } from 'rollup';
 import sourcemaps from 'rollup-plugin-sourcemaps';
@@ -30,13 +32,6 @@ const globP = promisify(glob);
 const { version }: { version: string } = JSON.parse(
 	readFileSync(join(__dirname, '..', 'package.json'), 'utf-8')
 );
-
-function getIdealIdentifier(id: string, extension: string = '') {
-	const parsed = parse(id);
-	return (
-		join(parsed.dir, parsed.name).replace(/[^a-z0-9@]/gi, '__') + extension
-	);
-}
 
 export default async function compileBack(cwd: string, isDevelopment: boolean) {
 	process.env.NODE_ENV = isDevelopment ? 'development' : 'production';
@@ -91,21 +86,22 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 		checksums: {},
 	};
 
+	const getDestination = (js: string) => {
+		const parsed = parse(js);
+
+		return join(
+			paths.dist,
+			relative(paths.src, join(parsed.dir, parsed.name + '.js'))
+		);
+	};
+
 	const javascript = await globP('src/**/{*.tsx,*.jsx,*.ts,*.js}', { cwd });
-	const jsNames: Record<string, string> = {};
-
-	for (const js of javascript) {
-		const idealName = getIdealIdentifier(js, '.js');
-
-		jsNames[js] = idealName;
-		bundleInfo.dist.push(relative(cwd, join(paths.dist, idealName)));
-	}
 
 	for (const js of await globP('src/pages/**/{*.tsx,*.jsx,*.ts,*.js}', {
 		cwd,
 	})) {
+		const dest = getDestination(js);
 		const parsed = parse(js);
-		const dest = join(paths.dist, jsNames[js]);
 
 		const route =
 			'/' +
@@ -161,9 +157,8 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 		throw new Error(`Couldn't parse tsconfig. Incompatible project.`);
 	}
 
-	if (parsedTsConfig.options.jsx !== ts.JsxEmit.ReactJSX) {
+	if (parsedTsConfig.options.jsx !== ts.JsxEmit.ReactJSX)
 		throw new Error(`tsconfig.jsx must be "react-jsx". Incompatible project.`);
-	}
 
 	const lint = new ESLint({ cwd });
 
@@ -176,10 +171,30 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 
 	console.log(formatter.format(res));
 
-	if (errorCount) {
+	if (errorCount)
 		throw new Error('Fix eslint errors before trying to compile again.');
-	}
 
+	const media = ({ id, contentHash }: AssetContext): AssetLocation => ({
+		file: join(
+			paths.outputStatic,
+			'media',
+			`${parse(id).name}.${contentHash.slice(-8)}${parse(id).ext}`
+		),
+		public: `/static/media/${parse(id).name}.${contentHash.slice(-8)}${
+			parse(id).ext
+		}`,
+	});
+
+	const includeMedia = 'src/**/{*.avif,*.bmp,*.gif,*.jpeg,*.jpg,*.png}';
+	const includeCSS =
+		'src/**/{*.module.scss,*.module.sass,*.module.css,*.scss,*.sass,*.css}';
+	const includeSVG = 'src/**/*.svg';
+
+	const cssFilter = createFilter(includeCSS);
+	const mediaFilter = createFilter(includeMedia);
+	const svgFilter = createFilter(includeSVG);
+
+	console.time('comp');
 	for (const js of javascript) {
 		let reuseBuild = true;
 
@@ -203,6 +218,10 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 			reuseBuild = false;
 		}
 
+		const file = getDestination(js);
+
+		bundleInfo.dist.push(relative(cwd, file));
+
 		if (reuseBuild) {
 			console.log('Skip', js);
 			bundleInfo.checksums[js] = prevBundleInfo!.checksums[js];
@@ -212,26 +231,25 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 		console.log('Compile', js);
 
 		const res = resolve(cwd, js);
-		const file = join(paths.dist, getIdealIdentifier(js, '.js'));
-
-		const media = ({ id, contentHash }: AssetContext): AssetLocation => ({
-			file: join(
-				paths.outputStatic,
-				'media',
-				`${parse(id).name}.${contentHash.slice(-8)}${parse(id).ext}`
-			),
-			public: `/static/media/${parse(id).name}.${contentHash.slice(-8)}${
-				parse(id).ext
-			}`,
-		});
-
-		const includeMedia = 'src/**/{*.avif,*.bmp,*.gif,*.jpeg,*.jpg,*.png}';
 
 		const compiler = await rollup({
 			input: res,
 			onwarn: (warning, next) => {
 				if (warning.code === 'UNRESOLVED_IMPORT') return;
 				next(warning);
+			},
+			external: (source, importer) => {
+				const req = createRequire(importer);
+				let src: string;
+
+				try {
+					src = req.resolve(source);
+				} catch (err) {
+					// will throw then requiring a module being compiled in src
+					src = resolve(importer, source);
+				}
+
+				return !svgFilter(src) && !cssFilter(src) && !mediaFilter(src);
 			},
 			plugins: [
 				mediaPlugin({
@@ -240,8 +258,7 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 				}),
 				cssPlugin({
 					sourceMap,
-					include:
-						'src/**/{*.module.scss,*.module.sass,*.module.css,*.scss,*.sass,*.css}',
+					include: includeCSS,
 					includeSass: 'src/**/{*.scss,*.sass}',
 					includeModule: 'src/**/{*.module.scss,*.module.sass,*.module.css}',
 					includeMedia,
@@ -258,7 +275,7 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 					}),
 				}),
 				svgPlugin({
-					include: 'src/**/*.svg',
+					include: includeSVG,
 					svg: ({ id, contentHash }) => ({
 						file: join(
 							paths.outputStatic,
@@ -297,6 +314,7 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 
 		bundleInfo.checksums[js] = record;
 	}
+	console.timeEnd('comp');
 
 	await writeFile(paths.packagePath, JSON.stringify({ type: 'commonjs' }));
 	await writeFile(paths.bundleInfoPath, JSON.stringify(bundleInfo));
