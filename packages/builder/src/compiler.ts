@@ -21,8 +21,8 @@ import { dirname, join, parse, relative, resolve, sep } from 'path';
 import { rollup } from 'rollup';
 import sourcemaps from 'rollup-plugin-sourcemaps';
 import typescript from 'rollup-plugin-typescript2';
+import rsort from 'route-sort';
 import semver from 'semver';
-import sort from 'sort-route-paths';
 import ts from 'typescript';
 import { promisify } from 'util';
 
@@ -108,20 +108,24 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 	/:test/abc
 	*/
 
+	const getRoute = (js: string) => {
+		const parsed = parse(js);
+		return (
+			'/' +
+			relative(
+				paths.srcPages,
+				parsed.name === 'index' ? parsed.dir : join(parsed.dir, parsed.name)
+			).replaceAll(sep, '/')
+		);
+	};
+
 	const pages: RouteMeta[] = [];
 
 	for (const js of await globP('src/pages/**/{*.tsx,*.jsx,*.ts,*.js}', {
 		cwd,
 	})) {
 		const dest = getDestination(js);
-		const parsed = parse(js);
-
-		const route =
-			'/' +
-			relative(
-				paths.srcPages,
-				parsed.name === 'index' ? parsed.dir : join(parsed.dir, parsed.name)
-			).replaceAll(sep, '/');
+		const route = getRoute(js);
 
 		pages.push({
 			route,
@@ -129,7 +133,10 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 		});
 	}
 
-	bundleInfo.pages = sort(pages, (entry) => entry.route);
+	const sortedRoutes = rsort(pages.map((route) => route.route));
+
+	for (const route of sortedRoutes)
+		bundleInfo.pages.push(pages.find((page) => page.route === route));
 
 	const tsConfigFile = ts.findConfigFile(cwd, ts.sys.fileExists);
 
