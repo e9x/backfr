@@ -1,9 +1,15 @@
 #!/usr/bin/env node
 import attachRuntime, { version } from './runtime.js';
 import { Command } from 'commander';
+import { expand } from 'dotenv-expand';
+import { config } from 'dotenv-flow';
 import { createServer } from 'http';
 
 const program = new Command();
+
+process.env.NODE_ENV = 'production';
+
+expand(config());
 
 program
 	.description('backfr Runtime')

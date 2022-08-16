@@ -3,10 +3,14 @@ import compileBack from './compiler.js';
 import { attachRuntime, DetachRuntime, getPaths } from '@backfr/runtime';
 import chokidar from 'chokidar';
 import { Command } from 'commander';
+import { expand } from 'dotenv-expand';
+import { config } from 'dotenv-flow';
 import { createServer } from 'http';
 import { join } from 'path';
 
 const program = new Command();
+
+expand(config());
 
 program.command('build').action(async () => {
 	const cwd = process.cwd();

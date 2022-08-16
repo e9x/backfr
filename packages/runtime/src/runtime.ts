@@ -3,6 +3,7 @@ import { ProcessedPage, renderPage } from './render.js';
 import {
 	AppProps,
 	BackHandler,
+	BackMiddlewareConfig,
 	BackPage,
 	BaseContext,
 	ErrorCodeProps,
@@ -79,6 +80,26 @@ function processAPI(component: BackComponent): BackHandler {
 	return component.module.default;
 }
 
+function processMiddleware(component: BackComponent): {
+	api: BackHandler;
+	config: BackMiddlewareConfig;
+} {
+	const config: BackMiddlewareConfig = {
+		matcher: [],
+	};
+
+	if (component.module.config?.matcher)
+		for (const route of component.module.config.matcher)
+			config.matcher.push(route);
+
+	if (!config.matcher.length) config.matcher.push('*');
+
+	return {
+		api: component.module.default,
+		config,
+	};
+}
+
 function processPage<P extends Props = {}>(
 	component: BackComponent
 ): ProcessedPage<P> {
@@ -139,7 +160,7 @@ export default function attachRuntime(
 			continue;
 		}
 
-		if (route.startsWith('/api/') || route === '/middleware') {
+		if (route.startsWith('/api/')) {
 			const api = processAPI(component);
 
 			expressServer.all(route, async (req, res, next) => {
@@ -152,6 +173,16 @@ export default function attachRuntime(
 					break;
 				case '/_app':
 					app = processPage<AppProps>(component);
+					break;
+				case '/middleware':
+					{
+						const mid = processMiddleware(component);
+
+						for (const match of mid.config.matcher)
+							expressServer.use(match, async (req, res, next) => {
+								mid.api(req, res, next);
+							});
+					}
 					break;
 				default:
 					{

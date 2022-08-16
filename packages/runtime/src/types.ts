@@ -3,6 +3,10 @@ import type { ComponentType } from 'react';
 
 export { Request, Response };
 
+export interface BackMiddlewareConfig {
+	matcher: string[];
+}
+
 export type BackHandler = (
 	req: Request,
 	res: Response,
