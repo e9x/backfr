@@ -4,10 +4,10 @@
 	"description": "backfr runtime",
 	"type": "commonjs",
 	"main": "dist/index.js",
-	"bin": "cli.js",
+	"bin": "bin.js",
 	"files": [
 		"dist",
-		"cli.js"
+		"bin.js"
 	],
 	"scripts": {
 		"build": "tsc",

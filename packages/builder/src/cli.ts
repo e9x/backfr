@@ -1,4 +1,4 @@
-import compileBack from './compiler.js';
+import compileBack, { version } from './compiler.js';
 import { attachRuntime, DetachRuntime, getPaths } from '@backfr/runtime';
 import chokidar from 'chokidar';
 import { Command } from 'commander';
@@ -11,7 +11,9 @@ const program = new Command();
 
 expand(config());
 
-program.command('build').action(async () => {
+program.name('backfr-builder').version(version).description('backfr builder');
+
+program.action(async () => {
 	const cwd = process.cwd();
 	await compileBack(cwd, false);
 });

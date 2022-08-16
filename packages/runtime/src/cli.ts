@@ -11,7 +11,7 @@ process.env.NODE_ENV = 'production';
 expand(config());
 
 program
-	.description('backfr Runtime')
+	.description('backfr runtime')
 	.version(version)
 	.option('-p, --port <port>', 'Port')
 	.option('-p, --host <host>')

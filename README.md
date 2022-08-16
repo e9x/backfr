@@ -22,7 +22,7 @@ $ backfr-builder dev
 
 ### Build for production:
 ```sh
-$ backfr-builder build
+$ backfr-builder
 ```
 
 ### Start:
