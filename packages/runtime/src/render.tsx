@@ -55,11 +55,15 @@ export async function renderPage<T extends Props>(
 				onShellReady() {
 					const helmet = Helmet.renderStatic();
 					context.res.setHeader('content-type', 'text/html');
+					const ht = helmet.htmlAttributes.toString();
 					context.res.write(
-						`<!doctype html><html ${helmet.htmlAttributes}><head><meta charSet="utf-8" />${helmet.base}${helmet.title}${helmet.meta}${helmet.link}${helmet.style}</head><body${helmet.bodyAttributes}><div id="root">`.replace(
-							/ data-react-helmet="true"/g,
-							''
-						)
+						`<!doctype html><html${
+							ht ? ' ' + ht : ht
+						}><head><meta charSet="utf-8" />${helmet.base}${helmet.title}${
+							helmet.meta
+						}${helmet.link}${helmet.style}</head><body${
+							helmet.bodyAttributes
+						}><div id="root">`.replace(/ data-react-helmet="true"/g, '')
 					);
 				},
 			}
