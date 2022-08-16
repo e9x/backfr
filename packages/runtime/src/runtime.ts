@@ -1,6 +1,14 @@
 import { BundleInfo, bundleInfoSchema } from './bundleInfo.js';
 import { ProcessedPage, processPage, renderPage } from './render.js';
-import { AppProps, BaseContext, ErrorCodeProps, ErrorProps } from './types.js';
+import {
+	AppProps,
+	BaseContext,
+	ErrorCodeProps,
+	ErrorProps,
+	isRedirectA,
+	isResultA,
+	isResultB,
+} from './types.js';
 import Ajv from 'ajv';
 import express from 'express';
 import { readFileSync } from 'fs';
@@ -70,7 +78,6 @@ export default function attachRuntime(
 		delete require.cache[script];
 	}
 
-	let notFound: ProcessedPage;
 	let app: ProcessedPage<AppProps>;
 	let error: ProcessedPage<ErrorProps>;
 
@@ -102,12 +109,26 @@ export default function attachRuntime(
 				expressServer.all(route, async (req, res, next) => {
 					const context: BaseContext = { req, res };
 
-					try {
-						const result = await error.getServerSideProps(context);
-						await renderPage(page, result.props, app, context);
-					} catch (err) {
-						console.log(err);
-						next(err);
+					const result = await page.getServerSideProps(context);
+
+					if (isResultA(result)) {
+						try {
+							await renderPage(page, result.props, app, context);
+						} catch (err) {
+							console.log(err);
+							next(err);
+						}
+					} else if (isResultB(result)) {
+						if (isRedirectA(result.redirect)) {
+							res.status(result.redirect.statusCode);
+						} else {
+							res.status(result.redirect.permanent ? 301 : 307);
+						}
+
+						res.redirect(result.redirect.destination);
+					} else {
+						// .notFound has to be true, otherwise the result is invalid
+						next();
 					}
 				});
 				break;

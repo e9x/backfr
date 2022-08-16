@@ -10,14 +10,53 @@ export interface BaseContext {
 	res: Response;
 }
 
-export type GetServerSidePropsResult<T extends Props> = { props: T };
+export interface RedirectA {
+	statusCode: 301 | 302 | 303 | 307 | 308;
+	destination: string;
+	basePath?: false;
+}
+
+export interface RedirectB {
+	permanent: boolean;
+	destination: string;
+	basePath?: false;
+}
+
+export interface ResultA<P extends Props> {
+	props: P | Promise<P>;
+}
+
+export interface ResultB {
+	redirect: RedirectA | RedirectB;
+}
+
+export interface ResultC {
+	notFound: true;
+}
+
+export type GetServerSidePropsResult<P extends Props> =
+	| ResultA<P>
+	| ResultB
+	| ResultC;
+
+// advanced type checks
+export const isRedirectA = (res: RedirectA | RedirectB): res is RedirectA =>
+	'statusCode' in res;
+
+export const isResultA = <P extends Props>(
+	res: GetServerSidePropsResult<P>
+): res is ResultA<P> => 'props' in res;
+
+export const isResultB = <P extends Props>(
+	res: GetServerSidePropsResult<P>
+): res is ResultB => 'redirect' in res;
 
 export type GetServerSideProps<
-	T extends Props = {},
+	P extends Props = {},
 	C extends BaseContext = BaseContext
 > = (
 	context: C
-) => Promise<GetServerSidePropsResult<T>> | GetServerSidePropsResult<T>;
+) => Promise<GetServerSidePropsResult<P>> | GetServerSidePropsResult<P>;
 
 export interface BackModule<P extends Props = {}> {
 	default: BackPage<P>;
