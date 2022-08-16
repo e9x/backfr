@@ -4,8 +4,8 @@ Serverside rendering on crack!
 
 ## Packages
 
-- [@backfr/builder](packages/builder/) - The tools used to generate a `.back` bundle.
-- [@backfr/runtime](packages/runtime/) - The tools used to spin up a webserver from a `.back` bundle.
+- [backfr-builder](packages/builder/)
+- [backfr](packages/runtime/)
 
 ## Objectives:
 

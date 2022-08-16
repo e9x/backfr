@@ -1,5 +1,5 @@
 {
-	"name": "@backfr/builder",
+	"name": "backfr-builder",
 	"version": "1.0.0-beta.1",
 	"description": "backfr build tool",
 	"type": "commonjs",
