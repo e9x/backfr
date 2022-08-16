@@ -2,12 +2,12 @@
 
 declare module '*.module.sass' {
 	const classes: { readonly [key: string]: string };
-	export = classes;
+	export default classes;
 }
 
 declare module '*.module.scss' {
 	const classes: { readonly [key: string]: string };
-	export = classes;
+	export default classes;
 }
 
 declare module '*.scss' {}

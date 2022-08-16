@@ -14,11 +14,12 @@ import Ajv from 'ajv';
 import { readFileSync } from 'fs';
 import { mkdir, readdir, readFile, writeFile } from 'fs/promises';
 import glob from 'glob';
-import { join, parse, relative, resolve, sep } from 'path';
+import { dirname, join, parse, relative, resolve, sep } from 'path';
 import { rollup } from 'rollup';
 import sourcemaps from 'rollup-plugin-sourcemaps';
 import typescript from 'rollup-plugin-typescript2';
 import semver from 'semver';
+import ts from 'typescript';
 import { promisify } from 'util';
 
 const ajv = new Ajv();
@@ -115,6 +116,54 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 		bundleInfo.pages[route] = relative(cwd, dest);
 	}
 
+	const tsConfigFile = ts.findConfigFile(cwd, ts.sys.fileExists);
+
+	if (!tsConfigFile)
+		throw new Error(`Couldn't find tsconfig. Incompatible project.`);
+
+	const aParsedTsconfig = ts.parseConfigFileTextToJson(
+		tsConfigFile,
+		await readFile(tsConfigFile, 'utf-8')
+	);
+
+	const baseDir = dirname(tsConfigFile);
+
+	if (aParsedTsconfig.error) {
+		console.error(
+			ts.formatDiagnosticsWithColorAndContext([aParsedTsconfig.error], {
+				getCurrentDirectory: () => cwd,
+				getCanonicalFileName: (f) => f,
+				getNewLine: () => '\n',
+			})
+		);
+
+		throw new Error(`Couldn't parse tsconfig. Incompatible project.`);
+	}
+
+	const parsedTsConfig = ts.parseJsonConfigFileContent(
+		aParsedTsconfig.config,
+		ts.sys,
+		baseDir,
+		undefined,
+		tsConfigFile
+	);
+
+	if (parsedTsConfig.errors.length) {
+		console.error(
+			ts.formatDiagnosticsWithColorAndContext(parsedTsConfig.errors, {
+				getCurrentDirectory: () => cwd,
+				getCanonicalFileName: (f) => f,
+				getNewLine: () => '\n',
+			})
+		);
+
+		throw new Error(`Couldn't parse tsconfig. Incompatible project.`);
+	}
+
+	if (parsedTsConfig.options.jsx !== ts.JsxEmit.ReactJSX) {
+		throw new Error(`tsconfig.jsx must be "react-jsx". Incompatible project.`);
+	}
+
 	for (const js of javascript) {
 		let reuseBuild = true;
 
@@ -208,6 +257,7 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 				sourcemaps(),
 				typescript({
 					cwd,
+					tsconfig: tsConfigFile,
 					abortOnError: false,
 				}),
 			],
