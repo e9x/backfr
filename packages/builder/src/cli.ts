@@ -8,13 +8,9 @@ import { join } from 'path';
 
 const program = new Command();
 
-async function compileStages(cwd: string, dev: boolean) {
-	await compileBack(cwd, dev);
-}
-
 program.command('build').action(async () => {
 	const cwd = process.cwd();
-	await compileStages(cwd, false);
+	await compileBack(cwd, false);
 });
 
 program
@@ -40,9 +36,8 @@ program
 		const update = async () => {
 			if (detachRuntime) detachRuntime();
 
-			await compileStages(cwd, true);
-
 			try {
+				await compileBack(cwd, true);
 				detachRuntime = attachRuntime(cwd, server);
 			} catch (err) {
 				console.error('Failure attaching runtime:');
