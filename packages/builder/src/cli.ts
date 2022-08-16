@@ -1,5 +1,5 @@
 import compileBack, { version } from './compiler.js';
-import { attachRuntime, DetachRuntime, getPaths } from '@backfr/runtime';
+import { attachRuntime, DetachRuntime, getPaths } from 'backfr';
 import chokidar from 'chokidar';
 import { Command } from 'commander';
 import { expand } from 'dotenv-expand';

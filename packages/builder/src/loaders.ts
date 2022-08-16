@@ -288,10 +288,11 @@ export function cssPlugin(options: {
 				cssCode + `/*# sourceMappingURL=${location.public}.map*/`
 			);
 
-			await writeFile(location.file + '.map', JSON.stringify(map));
+			if (map && options.sourceMap)
+				await writeFile(location.file + '.map', JSON.stringify(map));
 
 			return {
-				code: `import { exportCSS } from "@backfr/runtime"; exportCSS(${JSON.stringify(
+				code: `import { exportCSS } from "backfr"; exportCSS(${JSON.stringify(
 					location.public
 				)}); const styles = ${JSON.stringify(
 					classNames

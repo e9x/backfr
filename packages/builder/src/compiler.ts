@@ -8,15 +8,15 @@ import {
 	AssetContext,
 	AssetLocation,
 } from './loaders.js';
+import { createFilter } from '@rollup/pluginutils';
+import Ajv from 'ajv';
 import {
 	getPaths,
 	BundleInfo,
 	RouteMeta,
 	RuntimeOptions,
-} from '@backfr/runtime';
-import { bundleInfoSchema } from '@backfr/runtime';
-import { createFilter } from '@rollup/pluginutils';
-import Ajv from 'ajv';
+	bundleInfoSchema,
+} from 'backfr';
 import { ESLint } from 'eslint';
 import { readFileSync } from 'fs';
 import { mkdir, readdir, readFile, writeFile } from 'fs/promises';
