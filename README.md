@@ -1,6 +1,6 @@
 # back.js (backfr)
 
-Serverside rendering on crack!
+Back from compiling all your server + client code, serving 100 KB bundles, and using overkill frameworks for small tasks.
 
 ## Packages
 
@@ -10,7 +10,7 @@ Serverside rendering on crack!
 ## Objectives:
 
 - Make a builder and runtime that are not dependant on eachother ("dependencies" field in package.json).
-- Make a bundle that is capable of loading external node_modules, reducing bundle size.
+- Produce bundles that will leverage native module resolutions to reduce bundle size.
 - Strictly target server-side with APIs for convenience.
 
 ## CLI
@@ -29,3 +29,7 @@ $ backfr-builder
 ```sh
 $ backfr
 ```
+
+## Project structure
+
+See [Structure.md](./Structure.md)
