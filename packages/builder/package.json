@@ -8,6 +8,11 @@
 		"build": "tsc",
 		"build:watch": "tsc -w"
 	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/e9x/backfr.git"
+	},
+	"homepage": "https://github.com/e9x/backfr/tree/master/packages/runtime",
 	"author": "",
 	"license": "ISC",
 	"dependencies": {
