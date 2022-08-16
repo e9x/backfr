@@ -1,6 +1,6 @@
 {
 	"name": "@backfr/runtime",
-	"version": "1.0.0",
+	"version": "1.0.0-beta.1",
 	"description": "backfr node runtime",
 	"type": "commonjs",
 	"main": "dist/index.js",
