@@ -1,6 +1,10 @@
+export interface RouteMeta {
+	route: string;
+	src: string;
+}
 export interface BundleInfo {
 	version: string;
-	pages: Record<string, string>;
+	pages: RouteMeta[];
 	dist: string[];
 	checksums: Record<string, Record<string, string>>;
 }
@@ -12,11 +16,18 @@ export const bundleInfoSchema = {
 			type: 'string',
 		},
 		pages: {
-			type: 'object',
-			patternProperties: {
-				'^.*$': {
-					type: 'string',
+			type: 'array',
+			items: {
+				type: 'object',
+				properties: {
+					route: {
+						type: 'string',
+					},
+					src: {
+						type: 'string',
+					},
 				},
+				required: ['route', 'src'],
 			},
 		},
 		checksums: {

@@ -1,6 +1,5 @@
 import {
 	AppPage,
-	BackModule,
 	BackPage,
 	BaseContext,
 	GetServerSideProps,
@@ -10,47 +9,15 @@ import { renderToPipeableStream } from 'react-dom/server';
 import { Helmet } from 'react-helmet';
 import { PassThrough } from 'stream';
 
+export interface BackModule<P extends Props = {}> {
+	default: BackPage<P>;
+	getServerSideProps?: GetServerSideProps<P>;
+}
+
 export interface ProcessedPage<P extends Props = {}> {
 	getServerSideProps: GetServerSideProps;
 	Page: BackPage<P>;
 	css: string[];
-}
-
-let lastModuleCSS: string[] | undefined;
-
-function requireComponent<P extends Props = {}>(
-	src: string
-): { module: BackModule; css: string[] } {
-	const css: string[] = [];
-	lastModuleCSS = css;
-
-	// eslint-disable-next-line @typescript-eslint/no-var-requires
-	const mod = require(src) as BackModule<P>;
-
-	lastModuleCSS = undefined;
-
-	return { module: mod, css };
-}
-
-export function exportCSS(staticPath: string) {
-	if (!lastModuleCSS) throw new Error('Unmanaged CSS import');
-	lastModuleCSS.push(staticPath);
-}
-
-export function processPage<P extends Props = {}>(
-	src: string
-): ProcessedPage<P> {
-	const comp = requireComponent<P>(src);
-
-	if (!comp.module.default)
-		throw new Error(`Page ${src} did not satisfy BackModule`);
-
-	return {
-		Page: comp.module.default as BackPage<P>,
-		getServerSideProps:
-			comp.module.getServerSideProps || (() => ({ props: {} })),
-		css: comp.css,
-	};
 }
 
 export async function renderPage<T extends Props>(

@@ -1,5 +1,13 @@
-import type { Request, Response } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 import type { ComponentType } from 'react';
+
+export { Request, Response };
+
+export type BackHandler = (
+	req: Request,
+	res: Response,
+	next: NextFunction
+) => void;
 
 export type Props = object;
 
@@ -57,11 +65,6 @@ export type GetServerSideProps<
 > = (
 	context: C
 ) => Promise<GetServerSidePropsResult<P>> | GetServerSidePropsResult<P>;
-
-export interface BackModule<P extends Props = {}> {
-	default: BackPage<P>;
-	getServerSideProps?: GetServerSideProps<P>;
-}
 
 export interface AppProps extends Props {
 	Component: ComponentType<any>;

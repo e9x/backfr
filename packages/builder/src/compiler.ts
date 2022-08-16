@@ -8,7 +8,7 @@ import {
 	AssetContext,
 	AssetLocation,
 } from './loaders.js';
-import { getPaths, BundleInfo } from '@backfr/runtime';
+import { getPaths, BundleInfo, RouteMeta } from '@backfr/runtime';
 import { bundleInfoSchema } from '@backfr/runtime';
 import { createFilter } from '@rollup/pluginutils';
 import Ajv from 'ajv';
@@ -22,6 +22,7 @@ import { rollup } from 'rollup';
 import sourcemaps from 'rollup-plugin-sourcemaps';
 import typescript from 'rollup-plugin-typescript2';
 import semver from 'semver';
+import sort from 'sort-route-paths';
 import ts from 'typescript';
 import { promisify } from 'util';
 
@@ -81,7 +82,7 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 
 	const bundleInfo: BundleInfo = {
 		version,
-		pages: {},
+		pages: [],
 		dist: [],
 		checksums: {},
 	};
@@ -97,6 +98,18 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 
 	const javascript = await globP('src/**/{*.tsx,*.jsx,*.ts,*.js}', { cwd });
 
+	/*
+	/index
+	/api/abc
+	/test
+	/etc
+	/api/ab:testc
+	/ae:test/abc
+	/:test/abc
+	*/
+
+	const pages: RouteMeta[] = [];
+
 	for (const js of await globP('src/pages/**/{*.tsx,*.jsx,*.ts,*.js}', {
 		cwd,
 	})) {
@@ -110,8 +123,13 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 				parsed.name === 'index' ? parsed.dir : join(parsed.dir, parsed.name)
 			).replaceAll(sep, '/');
 
-		bundleInfo.pages[route] = relative(cwd, dest);
+		pages.push({
+			route,
+			src: relative(cwd, dest),
+		});
 	}
+
+	bundleInfo.pages = sort(pages, (entry) => entry.route);
 
 	const tsConfigFile = ts.findConfigFile(cwd, ts.sys.fileExists);
 
@@ -192,9 +210,7 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 		'src/**/{*.module.scss,*.module.sass,*.module.css,*.scss,*.sass,*.css}';
 	const includeSVG = 'src/**/*.svg';
 
-	const cssFilter = createFilter(includeCSS);
-	const mediaFilter = createFilter(includeMedia);
-	const svgFilter = createFilter(includeSVG);
+	const assetFilter = createFilter([includeCSS, includeMedia, includeSVG]);
 
 	for (const js of javascript) {
 		let reuseBuild = true;
@@ -246,11 +262,11 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 				try {
 					src = req.resolve(source);
 				} catch (err) {
-					// will throw then requiring a module being compiled in src
+					// throw when a src module is being imported (or the module really can't be imported)
 					src = resolve(importer, source);
 				}
 
-				return !svgFilter(src) && !cssFilter(src) && !mediaFilter(src);
+				return !assetFilter(src);
 			},
 			plugins: [
 				mediaPlugin({

@@ -1,13 +1,16 @@
 import { BundleInfo, bundleInfoSchema } from './bundleInfo.js';
-import { ProcessedPage, processPage, renderPage } from './render.js';
+import { ProcessedPage, renderPage } from './render.js';
 import {
 	AppProps,
+	BackHandler,
+	BackPage,
 	BaseContext,
 	ErrorCodeProps,
 	ErrorProps,
 	isRedirectA,
 	isResultA,
 	isResultB,
+	Props,
 } from './types.js';
 import Ajv from 'ajv';
 import express from 'express';
@@ -17,8 +20,6 @@ import { Server } from 'http';
 import createError from 'http-errors';
 import { join, resolve } from 'path';
 import semver from 'semver';
-
-export { exportCSS } from './render';
 
 export function getPaths(cwd: string) {
 	const output = join(cwd, '.back');
@@ -49,6 +50,48 @@ export const { version } = JSON.parse(
 ) as { version: string };
 
 export type DetachRuntime = () => void;
+
+let lastModuleCSS: string[] | undefined;
+
+interface BackComponent {
+	module: any;
+	css: string[];
+}
+
+function requireComponent(src: string): BackComponent {
+	const css: string[] = [];
+	lastModuleCSS = css;
+
+	// eslint-disable-next-line @typescript-eslint/no-var-requires
+	const mod = require(src);
+
+	lastModuleCSS = undefined;
+
+	return { module: mod, css };
+}
+
+export function exportCSS(staticPath: string) {
+	if (!lastModuleCSS) throw new Error('Unmanaged CSS import');
+	lastModuleCSS.push(staticPath);
+}
+
+function processAPI(component: BackComponent): BackHandler {
+	return component.module.default;
+}
+
+function processPage<P extends Props = {}>(
+	component: BackComponent
+): ProcessedPage<P> {
+	if (!component.module.default)
+		throw new Error(`Page did not satisfy BackModule`);
+
+	return {
+		Page: component.module.default as BackPage<P>,
+		getServerSideProps:
+			component.module.getServerSideProps || (() => ({ props: {} })),
+		css: component.css,
+	};
+}
 
 export default function attachRuntime(
 	cwd: string,
@@ -83,66 +126,82 @@ export default function attachRuntime(
 
 	const errorCodePages = new Map<number, ProcessedPage<ErrorCodeProps>>();
 
-	for (const route in bundleInfo.pages) {
-		const src = resolve(cwd, bundleInfo.pages[route]);
-
-		const page = processPage(src);
+	for (const { route, src } of bundleInfo.pages) {
+		const component = requireComponent(resolve(cwd, src));
 
 		const [, errorCode] = route.match(/^\/_(\d{3})$/) || [];
 
 		if (errorCode) {
 			errorCodePages.set(
 				parseInt(errorCode),
-				page as ProcessedPage<ErrorCodeProps>
+				processPage<ErrorCodeProps>(component)
 			);
 			continue;
 		}
 
-		switch (route) {
-			case '/_error':
-				error = page as ProcessedPage<ErrorProps>;
-				break;
-			case '/_app':
-				app = page as ProcessedPage<AppProps>;
-				break;
-			default:
-				expressServer.all(route, async (req, res, next) => {
-					const context: BaseContext = { req, res };
+		if (route.startsWith('/api/') || route === '/middleware') {
+			const api = processAPI(component);
 
-					const result = await page.getServerSideProps(context);
+			expressServer.all(route, async (req, res, next) => {
+				api(req, res, next);
+			});
+		} else
+			switch (route) {
+				case '/_error':
+					error = processPage<ErrorProps>(component);
+					break;
+				case '/_app':
+					app = processPage<AppProps>(component);
+					break;
+				default:
+					{
+						const page = processPage(component);
 
-					if (isResultA(result)) {
-						try {
-							await renderPage(page, result.props, app, context);
-						} catch (err) {
-							console.log(err);
-							next(err);
-						}
-					} else if (isResultB(result)) {
-						if (isRedirectA(result.redirect)) {
-							res.status(result.redirect.statusCode);
-						} else {
-							res.status(result.redirect.permanent ? 301 : 307);
-						}
+						expressServer.all(route, async (req, res, next) => {
+							const context: BaseContext = { req, res };
 
-						res.redirect(result.redirect.destination);
-					} else {
-						// .notFound has to be true, otherwise the result is invalid
-						next();
+							const result = await page.getServerSideProps(context);
+
+							if (isResultA(result)) {
+								try {
+									await renderPage(page, result.props, app, context);
+								} catch (err) {
+									console.log(err);
+									next(err);
+								}
+							} else if (isResultB(result)) {
+								if (isRedirectA(result.redirect)) {
+									res.status(result.redirect.statusCode);
+								} else {
+									res.status(result.redirect.permanent ? 301 : 307);
+								}
+
+								res.redirect(result.redirect.destination);
+							} else {
+								// .notFound has to be true, otherwise the result is invalid
+								next();
+							}
+						});
 					}
-				});
-				break;
-		}
+					break;
+			}
 	}
 
 	if (!error) {
 		if (!errorCodePages.has(404))
-			errorCodePages.set(404, processPage(require.resolve('./pages/_404.js')));
+			errorCodePages.set(
+				404,
+				processPage<ErrorCodeProps>(
+					requireComponent(require.resolve('./pages/_404.js'))
+				)
+			);
 
-		error ||= processPage(require.resolve('./pages/_error.js'));
+		error ||= processPage<ErrorProps>(
+			requireComponent(require.resolve('./pages/_error.js'))
+		);
 	}
 
-	app ||= processPage(require.resolve('./pages/_app.js'));
+	app ||= processPage(requireComponent(require.resolve('./pages/_app.js')));
 
 	expressServer.use(express.static(paths.publicFiles));
 	expressServer.use('/static/', express.static(paths.outputStatic));
