@@ -15,12 +15,14 @@ program
 	.version(version)
 	.option('-p, --port <port>', 'Port')
 	.option('-p, --host <host>')
-	.action(async ({ port, host }: { port: number; host?: string }) => {
+	.action(async ({ port, host }: { port?: number; host?: string }) => {
 		const cwd = process.cwd();
 		const server = createServer();
 
 		attachRuntime(cwd, server);
 
+		const envPort = parseInt(process.env.PORT);
+		if (!isNaN(envPort)) port ??= envPort;
 		port ??= 3000;
 		host ??= '0.0.0.0';
 
