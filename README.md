@@ -9,7 +9,7 @@ Serverside rendering on crack!
 
 ## Objectives:
 
-- Make a builder and runtime that are not dependant ("dependencies" field in package.json).
+- Make a builder and runtime that are not dependant on eachother ("dependencies" field in package.json).
 - Make a bundle that is capable of loading external node_modules, reducing bundle size.
 - Strictly target server-side with APIs for convenience.
 
