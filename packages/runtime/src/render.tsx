@@ -6,8 +6,10 @@ import {
 	Props,
 } from './types.js';
 import { renderToPipeableStream } from 'react-dom/server';
-import { Helmet } from 'react-helmet';
+import { FilledContext, Helmet, HelmetProvider } from 'react-helmet-async';
 import { PassThrough } from 'stream';
+
+export { Helmet as Head };
 
 export interface BackModule<P extends Props = {}> {
 	default: BackPage<P>;
@@ -39,35 +41,42 @@ export async function renderPage<T extends Props>(
 			resolve();
 		});
 
+		const helmetContext: Partial<FilledContext> = {};
+
 		const stream = renderToPipeableStream(
-			<>
+			<HelmetProvider context={helmetContext}>
 				<Helmet>
 					{appCSS.concat(css).map((css) => (
 						<link rel="stylesheet" href={css} key={css} />
 					))}
 				</Helmet>
 				<App Component={Page} pageProps={props} />
-			</>,
+			</HelmetProvider>,
 			{
 				onShellError(err) {
 					reject(err);
 				},
 				onShellReady() {
-					const helmet = Helmet.renderStatic();
+					const helmet = helmetContext.helmet!;
 					context.res.setHeader('content-type', 'text/html');
 					const ht = helmet.htmlAttributes.toString();
+					console.log(JSON.stringify(ht));
 					context.res.write(
 						`<!doctype html><html${
 							ht ? ' ' + ht : ht
-						}><head><meta charSet="utf-8" />${helmet.base}${helmet.title}${
-							helmet.meta
-						}${helmet.link}${helmet.style}</head><body${
-							helmet.bodyAttributes
-						}><div id="root">`.replace(/ data-react-helmet="true"/g, '')
+						}><head><meta charSet="utf-8" />${helmet.title.toString()}${
+							helmet.priority
+						}${helmet.meta}${helmet.link}${helmet.script}${
+							helmet.noscript
+						}</head><body${helmet.bodyAttributes}><div id="root">`.replace(
+							/ data-rh="true"/g,
+							''
+						)
 					);
 				},
 			}
 		);
+
 		stream.pipe(to);
 	});
 }

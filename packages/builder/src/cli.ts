@@ -40,6 +40,8 @@ program
 		let lastCompilation = Promise.resolve();
 
 		const defaultRequest = (req: IncomingMessage, res: ServerResponse) => {
+			// request immediately aborted?
+			res.on('error', (err) => console.error(err));
 			res.writeHead(500);
 			res.end('Server under maintenance');
 		};

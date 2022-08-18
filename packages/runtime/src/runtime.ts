@@ -1,5 +1,5 @@
 import { BundleInfo, bundleInfoSchema } from './bundleInfo.js';
-import { ProcessedPage, renderPage } from './render.js';
+import { ProcessedPage, renderPage, Head } from './render.js';
 import {
 	AppProps,
 	BackHandler,
@@ -21,6 +21,8 @@ import { Server } from 'http';
 import createError from 'http-errors';
 import { join, resolve } from 'path';
 import semver from 'semver';
+
+export { Head };
 
 export function getPaths(cwd: string) {
 	const output = join(cwd, '.back');
