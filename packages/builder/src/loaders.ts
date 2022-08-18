@@ -224,7 +224,8 @@ export function svgPlugin(options: {
 
 			const code =
 				`const url = ${JSON.stringify(location.public)};` +
-				`export default url; export const ReactComponent = (props) => (${(
+				`export default url;` +
+				`export const ReactComponent = (props) => (${(
 					optimized as OptimizedSvg
 				).data
 					.replace(/<svg((?: \w+="(?:[^"]|\\")*?")*)>/, '<svg$1 {...props}>')
@@ -326,10 +327,6 @@ export function cssPlugin(options: {
 									node.loc.end.offset,
 									`url(${JSON.stringify(location.public)})`
 								);
-
-								// location.public
-								// cssMagic.overwrite;
-								// node.value;
 							})()
 						);
 
