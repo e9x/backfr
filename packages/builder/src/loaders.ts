@@ -3,8 +3,10 @@ import { BinaryToTextEncoding, createHash } from 'crypto';
 import { parse as parseCSS, walk as walkCSS, CssNode } from 'css-tree';
 import { createReadStream } from 'fs';
 import { mkdir, writeFile, readFile, copyFile } from 'fs/promises';
+import imagemin from 'imagemin';
+import imageminWebp from 'imagemin-webp';
 import MagicString from 'magic-string';
-import { dirname } from 'path';
+import { dirname, join, parse } from 'path';
 import { Plugin } from 'rollup';
 import sass from 'sass';
 import { optimize, OptimizedSvg, OptimizedError } from 'svgo';
@@ -43,6 +45,81 @@ export const stringChecksum = (
 	return hash.digest(digest);
 };
 
+interface ParsedOptimizedImageQuery {
+	params: URLSearchParams;
+	relative: string;
+}
+
+function parseOptimizeImageQuery(
+	query: string
+): ParsedOptimizedImageQuery | undefined {
+	if (!query.startsWith('optimizeImage?')) return;
+
+	const end = query.slice('optimizeImage'.length);
+	const lastComma = end.lastIndexOf(',');
+	if (lastComma === -1) return;
+
+	const search = end.slice(0, lastComma);
+	const relative = end.slice(lastComma + 1);
+
+	const params = new URLSearchParams(search);
+
+	return { params, relative };
+}
+
+export function imagePlugin(options: {
+	media(context: AssetContext): AssetLocation;
+}): Plugin {
+	const pluginName = 'image-plugin';
+
+	return {
+		name: pluginName,
+		async resolveId(id, importer) {
+			const parsed = parseOptimizeImageQuery(id);
+			if (!parsed) return;
+			const res = await this.resolve(parsed.relative, importer);
+			res.meta = {
+				[pluginName]: parsed,
+			};
+			return res;
+		},
+		async load(id) {
+			const { [pluginName]: data } = this.getModuleInfo(id).meta as {
+				[pluginName]: ParsedOptimizedImageQuery;
+			};
+
+			if (!data) return;
+
+			let quality = parseInt(data.params.get('quality'));
+			if (isNaN(quality)) quality = 100;
+
+			const contentHash = await fileChecksum(id, 'md4', 'hex');
+			const betterID = join(dirname(id), parse(id).name + '.webp');
+			const context: AssetContext = { id: betterID, contentHash };
+
+			const location = options.media(context);
+
+			const [output] = await imagemin([id], {
+				plugins: [imageminWebp({ quality })],
+			});
+
+			try {
+				await mkdir(dirname(location.file), { recursive: true });
+			} catch (err) {
+				if (err?.code !== 'EEXIST') throw err;
+			}
+
+			await writeFile(location.file, output.data);
+
+			return {
+				code: `const url = ${JSON.stringify(
+					location.public
+				)}; export default url;`,
+			};
+		},
+	};
+}
+
 export function mediaPlugin(options: {
 	include: string;
 	media(context: AssetContext): AssetLocation;
@@ -50,7 +127,7 @@ export function mediaPlugin(options: {
 	const filter = createFilter(options.include);
 
 	return {
-		name: 'asset-plugin',
+		name: 'media-plugin',
 		resolveId(id) {
 			if (!filter(id)) return;
 			return id;

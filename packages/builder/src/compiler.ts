@@ -1,4 +1,3 @@
-import freeImport from '../freeImport.js';
 import { Config, configSchema } from './config.js';
 import {
 	cssPlugin,
@@ -7,18 +6,12 @@ import {
 	fileChecksum,
 	AssetContext,
 	AssetLocation,
+	imagePlugin,
 } from './loaders.js';
 import { createFilter } from '@rollup/pluginutils';
 import Ajv from 'ajv';
-import {
-	getPaths,
-	BundleInfo,
-	RouteMeta,
-	RuntimeOptions,
-	bundleInfoSchema,
-} from 'backfr';
+import runtime from 'backfr';
 import { ESLint } from 'eslint';
-import { readFileSync } from 'fs';
 import { mkdir, readdir, readFile, writeFile } from 'fs/promises';
 import glob from 'glob';
 import { createRequire } from 'module';
@@ -29,20 +22,23 @@ import typescript from 'rollup-plugin-typescript2';
 import rsort from 'route-sort';
 import semver from 'semver';
 import ts from 'typescript';
+import { fileURLToPath } from 'url';
 import { promisify } from 'util';
 
 const ajv = new Ajv();
 
 const globP = promisify(glob);
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
 export const { version }: { version: string } = JSON.parse(
-	readFileSync(join(__dirname, '..', 'package.json'), 'utf-8')
+	await readFile(join(__dirname, '..', 'package.json'), 'utf-8')
 );
 
 export default async function compileBack(cwd: string, isDevelopment: boolean) {
 	process.env.NODE_ENV = isDevelopment ? 'development' : 'production';
 
-	const paths = getPaths(cwd);
+	const paths = runtime.getPaths(cwd);
 
 	const configFile = (await readdir(cwd)).find(
 		(file) => file === 'back.config.js' || file === 'back.config.mjs'
@@ -50,7 +46,7 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 
 	if (!configFile) throw new Error('Config file missing');
 
-	const { default: config } = (await freeImport(resolve(cwd, configFile))) as {
+	const { default: config } = (await import(resolve(cwd, configFile))) as {
 		default: Config;
 	};
 
@@ -69,14 +65,14 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 		if (err?.code !== 'EEXIST') throw err;
 	}
 
-	let prevBundleInfo: BundleInfo | undefined;
+	let prevBundleInfo: runtime.BundleInfo | undefined;
 
 	try {
-		const parsed: BundleInfo = JSON.parse(
+		const parsed: runtime.BundleInfo = JSON.parse(
 			await readFile(paths.bundleInfoPath, 'utf-8')
 		);
 
-		const validate = ajv.compile<BundleInfo>(bundleInfoSchema);
+		const validate = ajv.compile<runtime.BundleInfo>(runtime.bundleInfoSchema);
 
 		if (validate(parsed) && semver.satisfies(version, parsed.version))
 			prevBundleInfo = parsed;
@@ -88,9 +84,9 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 	config.runtimeOptions ||= {};
 	config.runtimeOptions.poweredByHeader ??= true;
 
-	const bundleInfo: BundleInfo = {
+	const bundleInfo: runtime.BundleInfo = {
 		version,
-		runtimeOptions: <RuntimeOptions>config.runtimeOptions,
+		runtimeOptions: <runtime.RuntimeOptions>config.runtimeOptions,
 		pages: [],
 		dist: [],
 		checksums: {},
@@ -128,7 +124,7 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 		);
 	};
 
-	const pages: RouteMeta[] = [];
+	const pages: runtime.RouteMeta[] = [];
 
 	for (const js of await globP('src/pages/**/{*.tsx,*.jsx,*.ts,*.js}', {
 		cwd,
@@ -221,7 +217,7 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 		}`,
 	});
 
-	const includeMedia = 'src/**/{*.avif,*.bmp,*.gif,*.jpeg,*.jpg,*.png}';
+	const includeMedia = 'src/**/{*.avif,*.webp,*.bmp,*.gif,*.jpeg,*.jpg,*.png}';
 	const includeCSS =
 		'src/**/{*.module.scss,*.module.sass,*.module.css,*.scss,*.sass,*.css}';
 	const includeSVG = 'src/**/*.svg';
@@ -285,6 +281,9 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 				return !assetFilter(src);
 			},
 			plugins: [
+				imagePlugin({
+					media,
+				}),
 				mediaPlugin({
 					include: includeMedia,
 					media,

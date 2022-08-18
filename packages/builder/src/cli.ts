@@ -1,5 +1,5 @@
 import compileBack, { version } from './compiler.js';
-import { attachRuntime, DetachRuntime, getPaths } from 'backfr';
+import runtime from 'backfr';
 import chokidar from 'chokidar';
 import { Command } from 'commander';
 import { expand } from 'dotenv-expand';
@@ -27,7 +27,7 @@ program
 		port ??= 3000;
 
 		const cwd = process.cwd();
-		const paths = getPaths(cwd);
+		const paths = runtime.getPaths(cwd);
 		const watcher = chokidar.watch(
 			[join(cwd, 'back.config.js'), join(cwd, 'back.config.mjs'), paths.src],
 			{
@@ -36,7 +36,7 @@ program
 		);
 
 		const server = createServer();
-		let detachRuntime: DetachRuntime | undefined;
+		let detachRuntime: runtime.DetachRuntime | undefined;
 		let lastCompilation = Promise.resolve();
 
 		const update = async () => {
@@ -44,7 +44,7 @@ program
 
 			try {
 				await compileBack(cwd, true);
-				detachRuntime = attachRuntime(cwd, server);
+				detachRuntime = runtime.attachRuntime(cwd, server);
 				console.log('Runtime attached');
 			} catch (err) {
 				console.error(err);

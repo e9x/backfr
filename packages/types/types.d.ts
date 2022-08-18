@@ -44,6 +44,11 @@ declare module '*.png' {
 	export default url;
 }
 
+declare module '&ext=.*' {
+	const url: string;
+	export default url;
+}
+
 declare module '*.svg' {
 	const url: string;
 	export const ReactComponent: React.ComponentType<React.SVGAttributes<{}>>;
