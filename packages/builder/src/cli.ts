@@ -47,11 +47,12 @@ program
 		};
 
 		const registerDefaultHandlers = () => {
+			deregisterDefaultHandlers();
 			server.on('request', defaultRequest);
 		};
 
 		const deregisterDefaultHandlers = () => {
-			server.off('request', defaultRequest);
+			server.removeListener('request', defaultRequest);
 		};
 
 		const update = async () => {

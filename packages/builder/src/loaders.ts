@@ -194,7 +194,7 @@ const convertStylesStringToObject = (stringStyles: string) => {
 					let reactProp = node.property;
 					if (reactProp.startsWith('-ms-'))
 						reactProp = 'ms-' + reactProp.slice(4);
-					reactProp = reactProp.replace(/-(.)/g, (match, char) =>
+					reactProp = reactProp.replace(/[-:](.)/g, (match, char) =>
 						char.toUpperCase()
 					);
 					styleObject[reactProp] =
