@@ -3,13 +3,10 @@
 	"version": "1.0.0-beta.4",
 	"description": "backfr build tool",
 	"type": "module",
-	"types": "dist/types.d.ts",
 	"bin": "bin.js",
 	"files": [
 		"dist",
-		"bin.js",
-		"freeImport.js",
-		"freeImport.d.js"
+		"bin.js"
 	],
 	"scripts": {
 		"build": "tsc",
@@ -23,7 +20,7 @@
 		"next.js alternative",
 		"ssr"
 	],
-	"homepage": "https://github.com/e9x/backfr/tree/master/packages/runtime",
+	"homepage": "https://github.com/e9x/backfr/tree/master/packages/builder",
 	"author": "",
 	"license": "ISC",
 	"dependencies": {

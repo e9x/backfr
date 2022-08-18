@@ -21,7 +21,7 @@
 		"next.js alternative",
 		"ssr"
 	],
-	"homepage": "https://github.com/e9x/backfr/tree/master/packages/builder",
+	"homepage": "https://github.com/e9x/backfr/tree/master/packages/runtime",
 	"author": "",
 	"license": "ISC",
 	"dependencies": {
