@@ -96,6 +96,27 @@ async function loadImage(
 	return location;
 }
 
+async function loadMedia(
+	id: string,
+	media: (context: AssetContext) => AssetLocation
+) {
+	const contentHash = await fileChecksum(id, 'md4', 'hex');
+	const location = media({
+		id: id,
+		contentHash,
+	});
+
+	try {
+		await mkdir(dirname(location.file), { recursive: true });
+	} catch (err) {
+		if (err?.code !== 'EEXIST') throw err;
+	}
+
+	await copyFile(id, location.file);
+
+	return location;
+}
+
 export function imagePlugin(options: {
 	media: (context: AssetContext) => AssetLocation;
 }): Plugin {
@@ -145,18 +166,7 @@ export function mediaPlugin(options: {
 		async load(id) {
 			if (!filter(id)) return;
 
-			const contentHash = await fileChecksum(id, 'md4', 'hex');
-			const context: AssetContext = { id, contentHash };
-
-			const location = options.media(context);
-
-			try {
-				await mkdir(dirname(location.file), { recursive: true });
-			} catch (err) {
-				if (err?.code !== 'EEXIST') throw err;
-			}
-
-			await copyFile(id, location.file);
+			const location = await loadMedia(id, options.media);
 
 			return {
 				code: `const url = ${JSON.stringify(
@@ -319,43 +329,15 @@ export function cssPlugin(options: {
 
 								const parsed = parseOptimizeImageQuery(value);
 
-								if (parsed) {
-									const location = await loadImage(
-										parsed,
-										mediaID.id,
-										options.media
-									);
+								const location = parsed
+									? await loadImage(parsed, mediaID.id, options.media)
+									: await loadMedia(mediaID.id, options.media);
 
-									cssMagic.overwrite(
-										node.loc.start.offset,
-										node.loc.end.offset,
-										`url(${JSON.stringify(location.public)})`
-									);
-								} else {
-									const contentHash = await fileChecksum(
-										mediaID.id,
-										'md4',
-										'hex'
-									);
-									const location = options.media({
-										id: mediaID.id,
-										contentHash,
-									});
-
-									try {
-										await mkdir(dirname(location.file), { recursive: true });
-									} catch (err) {
-										if (err?.code !== 'EEXIST') throw err;
-									}
-
-									await copyFile(mediaID.id, location.file);
-
-									cssMagic.overwrite(
-										node.loc.start.offset,
-										node.loc.end.offset,
-										`url(${JSON.stringify(location.public)})`
-									);
-								}
+								cssMagic.overwrite(
+									node.loc.start.offset,
+									node.loc.end.offset,
+									`url(${JSON.stringify(location.public)})`
+								);
 							})()
 						);
 
