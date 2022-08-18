@@ -60,7 +60,6 @@ export async function renderPage<T extends Props>(
 					const helmet = helmetContext.helmet!;
 					context.res.setHeader('content-type', 'text/html');
 					const ht = helmet.htmlAttributes.toString();
-					console.log(JSON.stringify(ht));
 					context.res.write(
 						`<!doctype html><html${
 							ht ? ' ' + ht : ht
