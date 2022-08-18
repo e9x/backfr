@@ -4,7 +4,7 @@ import chokidar from 'chokidar';
 import { Command } from 'commander';
 import { expand } from 'dotenv-expand';
 import { config } from 'dotenv-flow';
-import { createServer } from 'http';
+import { createServer, IncomingMessage, ServerResponse } from 'http';
 import { join } from 'path';
 
 const program = new Command();
@@ -39,13 +39,28 @@ program
 		let detachRuntime: runtime.DetachRuntime | undefined;
 		let lastCompilation = Promise.resolve();
 
+		const defaultRequest = (req: IncomingMessage, res: ServerResponse) => {
+			res.writeHead(500);
+			res.end('Server under maintenance');
+		};
+
+		const registerDefaultHandlers = () => {
+			server.on('request', defaultRequest);
+		};
+
+		const deregisterDefaultHandlers = () => {
+			server.off('request', defaultRequest);
+		};
+
 		const update = async () => {
 			if (detachRuntime) detachRuntime();
+			registerDefaultHandlers();
 
 			try {
 				await compileBack(cwd, true);
 				detachRuntime = runtime.attachRuntime(cwd, server);
 				console.log('Runtime attached');
+				deregisterDefaultHandlers();
 			} catch (err) {
 				console.error(err);
 			}

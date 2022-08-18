@@ -67,8 +67,37 @@ function parseOptimizeImageQuery(
 	return { params, relative };
 }
 
+async function loadImage(
+	data: ParsedOptimizedImageQuery,
+	id: string,
+	media: (context: AssetContext) => AssetLocation
+) {
+	let quality = parseInt(data.params.get('quality'));
+	if (isNaN(quality)) quality = 100;
+
+	const [output] = await imagemin([id], {
+		plugins: [imageminWebp({ quality })],
+	});
+
+	const contentHash = dataChecksum(output.data, 'md4', 'hex');
+	const betterID = join(dirname(id), parse(id).name + '.webp');
+	const context: AssetContext = { id: betterID, contentHash };
+
+	const location = media(context);
+
+	try {
+		await mkdir(dirname(location.file), { recursive: true });
+	} catch (err) {
+		if (err?.code !== 'EEXIST') throw err;
+	}
+
+	await writeFile(location.file, output.data);
+
+	return location;
+}
+
 export function imagePlugin(options: {
-	media(context: AssetContext): AssetLocation;
+	media: (context: AssetContext) => AssetLocation;
 }): Plugin {
 	const pluginName = 'image-plugin';
 
@@ -90,26 +119,7 @@ export function imagePlugin(options: {
 
 			if (!data) return;
 
-			let quality = parseInt(data.params.get('quality'));
-			if (isNaN(quality)) quality = 100;
-
-			const [output] = await imagemin([id], {
-				plugins: [imageminWebp({ quality })],
-			});
-
-			const contentHash = dataChecksum(output.data, 'md4', 'hex');
-			const betterID = join(dirname(id), parse(id).name + '.webp');
-			const context: AssetContext = { id: betterID, contentHash };
-
-			const location = options.media(context);
-
-			try {
-				await mkdir(dirname(location.file), { recursive: true });
-			} catch (err) {
-				if (err?.code !== 'EEXIST') throw err;
-			}
-
-			await writeFile(location.file, output.data);
+			const location = await loadImage(data, id, options.media);
 
 			return {
 				code: `const url = ${JSON.stringify(
@@ -122,7 +132,7 @@ export function imagePlugin(options: {
 
 export function mediaPlugin(options: {
 	include: string;
-	media(context: AssetContext): AssetLocation;
+	media: (context: AssetContext) => AssetLocation;
 }): Plugin {
 	const filter = createFilter(options.include);
 
@@ -258,8 +268,8 @@ export function cssPlugin(options: {
 	includeModule: string;
 	includeSass: string;
 	includeMedia: string;
-	css(context: AssetContext): AssetLocation;
-	media(context: AssetContext): AssetLocation;
+	css: (context: AssetContext) => AssetLocation;
+	media: (context: AssetContext) => AssetLocation;
 	sourceMap: boolean;
 }): Plugin {
 	const filter = createFilter(options.include);
@@ -307,26 +317,45 @@ export function cssPlugin(options: {
 
 								if (!mediaID || !mediaFilter(mediaID.id)) return;
 
-								const contentHash = await fileChecksum(
-									mediaID.id,
-									'md4',
-									'hex'
-								);
-								const location = options.media({ id: mediaID.id, contentHash });
+								const parsed = parseOptimizeImageQuery(value);
 
-								try {
-									await mkdir(dirname(location.file), { recursive: true });
-								} catch (err) {
-									if (err?.code !== 'EEXIST') throw err;
+								if (parsed) {
+									const location = await loadImage(
+										parsed,
+										mediaID.id,
+										options.media
+									);
+
+									cssMagic.overwrite(
+										node.loc.start.offset,
+										node.loc.end.offset,
+										`url(${JSON.stringify(location.public)})`
+									);
+								} else {
+									const contentHash = await fileChecksum(
+										mediaID.id,
+										'md4',
+										'hex'
+									);
+									const location = options.media({
+										id: mediaID.id,
+										contentHash,
+									});
+
+									try {
+										await mkdir(dirname(location.file), { recursive: true });
+									} catch (err) {
+										if (err?.code !== 'EEXIST') throw err;
+									}
+
+									await copyFile(mediaID.id, location.file);
+
+									cssMagic.overwrite(
+										node.loc.start.offset,
+										node.loc.end.offset,
+										`url(${JSON.stringify(location.public)})`
+									);
 								}
-
-								await copyFile(mediaID.id, location.file);
-
-								cssMagic.overwrite(
-									node.loc.start.offset,
-									node.loc.end.offset,
-									`url(${JSON.stringify(location.public)})`
-								);
 							})()
 						);
 
