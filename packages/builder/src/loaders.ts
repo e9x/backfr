@@ -1,5 +1,5 @@
 import { createFilter } from '@rollup/pluginutils';
-import { BinaryToTextEncoding, createHash } from 'crypto';
+import { BinaryLike, BinaryToTextEncoding, createHash } from 'crypto';
 import { parse as parseCSS, walk as walkCSS, CssNode } from 'css-tree';
 import { createReadStream } from 'fs';
 import { mkdir, writeFile, readFile, copyFile } from 'fs/promises';
@@ -35,13 +35,13 @@ export const fileChecksum = (
 		read.pipe(hash);
 	});
 
-export const stringChecksum = (
-	text: string,
+export const dataChecksum = (
+	data: BinaryLike,
 	algorithm: string,
 	digest: BinaryToTextEncoding
 ) => {
 	const hash = createHash(algorithm);
-	hash.update(text);
+	hash.update(data);
 	return hash.digest(digest);
 };
 
@@ -93,15 +93,15 @@ export function imagePlugin(options: {
 			let quality = parseInt(data.params.get('quality'));
 			if (isNaN(quality)) quality = 100;
 
-			const contentHash = await fileChecksum(id, 'md4', 'hex');
+			const [output] = await imagemin([id], {
+				plugins: [imageminWebp({ quality })],
+			});
+
+			const contentHash = dataChecksum(output.data, 'md4', 'hex');
 			const betterID = join(dirname(id), parse(id).name + '.webp');
 			const context: AssetContext = { id: betterID, contentHash };
 
 			const location = options.media(context);
-
-			const [output] = await imagemin([id], {
-				plugins: [imageminWebp({ quality })],
-			});
 
 			try {
 				await mkdir(dirname(location.file), { recursive: true });
@@ -276,18 +276,9 @@ export function cssPlugin(options: {
 
 			const isModule = moduleFilter(id);
 
-			const contentHash = await fileChecksum(id, 'md4', 'hex');
-			const context: AssetContext = { id, contentHash };
-
-			const location = options.css(context);
+			const sourceContentHash = await fileChecksum(id, 'md4', 'hex');
 
 			const classNames: Record<string, string> = {};
-
-			try {
-				await mkdir(dirname(location.file), { recursive: true });
-			} catch (err) {
-				if (err?.code !== 'EEXIST') throw err;
-			}
 
 			let cssCode = await readFile(id, 'utf-8');
 
@@ -343,7 +334,7 @@ export function cssPlugin(options: {
 						);
 
 					if (isModule && node.type === 'ClassSelector') {
-						const replaced = `${node.name}-${contentHash.slice(-8)}`;
+						const replaced = `${node.name}-${sourceContentHash.slice(-8)}`;
 
 						classNames[node.name] = replaced;
 
@@ -359,6 +350,18 @@ export function cssPlugin(options: {
 			await Promise.all(promises);
 
 			cssCode = cssMagic.toString();
+
+			const contentHash = dataChecksum(cssCode, 'md4', 'hex');
+
+			const context: AssetContext = { id, contentHash };
+
+			const location = options.css(context);
+
+			try {
+				await mkdir(dirname(location.file), { recursive: true });
+			} catch (err) {
+				if (err?.code !== 'EEXIST') throw err;
+			}
 
 			if (map && options.sourceMap) {
 				await writeFile(
