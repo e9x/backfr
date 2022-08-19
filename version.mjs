@@ -19,35 +19,17 @@ for (const pkg of [
 for (const pkg of packages.map((pk) => `packages/${pk}/package.json`)) {
 	const data = JSON.parse(await readFile(pkg));
 
-	if (!data.dependencies) continue;
-
-	for (const pn of packageNames) {
-		if (pn in data.dependencies) {
-			data.dependencies[pn] = '^' + version;
+	for (const x of ['dependencies', 'devDependencies'])
+		if (data[x]) {
+			for (const pn of packageNames) {
+				if (pn in data[x]) {
+					data[x][pn] = '^' + version;
+				}
+			}
 		}
-	}
 
 	await writeFile(pkg, JSON.stringify(data, null, '\t') + '\n');
 }
 
-const lockfile = 'package-lock.json';
-
-const data = JSON.parse(await readFile(lockfile));
-
-for (const pkg of ['', ...packages.map((pkg) => `packages/${pkg}`)]) {
-	const entry = data.packages[pkg];
-
-	entry.version = version;
-
-	if (!entry.requires) continue;
-
-	for (const pn of packageNames) {
-		if (pn in entry.dependencies) {
-			entry.requires[pn] = '^' + version;
-		}
-	}
-}
-
-data.version = version;
-
-await writeFile(lockfile, JSON.stringify(data, null, '\t') + '\n');
+console.log('Run npm install to update lockfile:');
+console.log('$ npm install');
