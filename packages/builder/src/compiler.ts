@@ -236,39 +236,45 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 		let reuseBuild = true;
 
 		if (prevBundleInfo && js in prevBundleInfo.checksums) {
-			const goalChecksums = prevBundleInfo.checksums[js];
+			try {
+				const goalChecksums = prevBundleInfo.checksums[js];
 
-			for (const file in goalChecksums.requires) {
-				const checksum = await fileChecksum(
-					resolve(cwd, file),
-					'sha256',
-					'base64'
-				);
-
-				if (checksum !== goalChecksums.requires[file]) {
-					reuseBuild = false;
-					console.log(js, 'cannot be lazy compiled,', file, 'was updated');
-					break;
-				}
-			}
-
-			for (const file in goalChecksums.emitted) {
-				const checksum = await fileChecksum(
-					resolve(cwd, file),
-					'sha256',
-					'base64'
-				);
-
-				if (checksum !== goalChecksums.emitted[file]) {
-					reuseBuild = false;
-					console.log(
-						js,
-						'cannot be lazy compiled, asset',
-						file,
-						'was corrupted'
+				for (const file in goalChecksums.requires) {
+					const checksum = await fileChecksum(
+						resolve(cwd, file),
+						'sha256',
+						'base64'
 					);
-					break;
+
+					if (checksum !== goalChecksums.requires[file]) {
+						reuseBuild = false;
+						console.log(js, 'cannot be lazy compiled,', file, 'was updated');
+						break;
+					}
 				}
+
+				for (const file in goalChecksums.emitted) {
+					const checksum = await fileChecksum(
+						resolve(cwd, file),
+						'sha256',
+						'base64'
+					);
+
+					if (checksum !== goalChecksums.emitted[file]) {
+						reuseBuild = false;
+						console.log(
+							js,
+							'cannot be lazy compiled, asset',
+							file,
+							'was corrupted'
+						);
+						break;
+					}
+				}
+			} catch (err) {
+				console.error('error checking checksums');
+				console.error(err);
+				reuseBuild = false;
 			}
 		} else {
 			reuseBuild = false;

@@ -35,6 +35,7 @@
 		"eslint": "^8.22.0",
 		"file-loader": "^6.2.0",
 		"glob": "^8.0.3",
+		"htmltojsx": "^0.3.0",
 		"imagemin": "^8.0.1",
 		"imagemin-webp": "^7.0.0",
 		"loader-utils": "^3.2.0",
@@ -60,6 +61,7 @@
 	"devDependencies": {
 		"@types/css-tree": "^1.0.7",
 		"@types/glob": "^7.2.0",
+		"@types/htmltojsx": "^0.0.30",
 		"@types/imagemin": "^8.0.0",
 		"@types/loader-utils": "^2.0.3",
 		"@types/semver": "^7.3.12",

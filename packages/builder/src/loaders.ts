@@ -2,6 +2,7 @@ import { fileChecksum, dataChecksum } from './checksums.js';
 import { createFilter } from '@rollup/pluginutils';
 import { parse as parseCSS, walk as walkCSS, CssNode } from 'css-tree';
 import { mkdir, writeFile, readFile, copyFile } from 'fs/promises';
+import HTMLtoJSX from 'htmltojsx';
 import imagemin from 'imagemin';
 import imageminWebp from 'imagemin-webp';
 import MagicString from 'magic-string';
@@ -214,25 +215,13 @@ export function svgPlugin(options: {
 
 			const optimized = optimize(svg);
 
+			if (resultIsError(optimized)) throw optimized.modernError;
+
 			const { data } = optimized as OptimizedSvg;
 
 			await writeFile(location.file, data);
 
-			if (resultIsError(optimized)) throw optimized.modernError;
-
-			const jsxComponent = data
-				.replace(/<svg((?: \w+="(?:[^"]|\\")*?")*)>/, '<svg$1 {...props}>')
-				.replace(
-					/(<.*?(?: \w+="(?:[^"]|\\")*?")*) style="((?:[^"]|\\")*?)"/g,
-					(match, padStart, style) =>
-						`${padStart} style={${JSON.stringify(
-							convertStylesStringToObject(style)
-						)}}`
-				)
-				.replace(
-					/ (xmlns|xlink):(\w+)/g,
-					(match, ns, word) => ns + word[0].toUpperCase() + word.slice(1)
-				);
+			const jsxComponent = new HTMLtoJSX({ createClass: false }).convert(data);
 
 			const code =
 				`const url = ${JSON.stringify(location.public)};` +
