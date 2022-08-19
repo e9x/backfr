@@ -1,7 +1,6 @@
+import { fileChecksum, dataChecksum } from './checksums.js';
 import { createFilter } from '@rollup/pluginutils';
-import { BinaryLike, BinaryToTextEncoding, createHash } from 'crypto';
 import { parse as parseCSS, walk as walkCSS, CssNode } from 'css-tree';
-import { createReadStream } from 'fs';
 import { mkdir, writeFile, readFile, copyFile } from 'fs/promises';
 import imagemin from 'imagemin';
 import imageminWebp from 'imagemin-webp';
@@ -21,29 +20,6 @@ export interface AssetLocation {
 	public: string;
 	file: string;
 }
-
-export const fileChecksum = (
-	file: string,
-	algorithm: string,
-	digest: BinaryToTextEncoding
-) =>
-	new Promise<string>((resolve, reject) => {
-		const hash = createHash(algorithm);
-		const read = createReadStream(file);
-		read.on('end', () => resolve(hash.digest(digest)));
-		read.on('error', reject);
-		read.pipe(hash);
-	});
-
-export const dataChecksum = (
-	data: BinaryLike,
-	algorithm: string,
-	digest: BinaryToTextEncoding
-) => {
-	const hash = createHash(algorithm);
-	hash.update(data);
-	return hash.digest(digest);
-};
 
 interface ParsedOptimizedImageQuery {
 	params: URLSearchParams;

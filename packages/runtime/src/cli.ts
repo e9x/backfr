@@ -19,7 +19,7 @@ program
 		const cwd = process.cwd();
 		const server = createServer();
 
-		attachRuntime(cwd, server);
+		await attachRuntime(cwd, server);
 
 		const envPort = parseInt(process.env.PORT);
 		if (!isNaN(envPort)) port ??= envPort;

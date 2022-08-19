@@ -8,10 +8,38 @@ export interface RouteMeta {
 export interface BundleInfo {
 	version: string;
 	pages: RouteMeta[];
-	dist: string[];
+	js: string[];
 	runtimeOptions: RuntimeOptions;
-	checksums: Record<string, Record<string, string>>;
+	checksums: Record<string, BundleChecksum>;
 }
+
+export interface BundleChecksum {
+	requires: Record<string, string>;
+	emitted: Record<string, string>;
+}
+
+export const bundleChecksumSchema = {
+	type: 'object',
+	properties: {
+		requires: {
+			type: 'object',
+			patternProperties: {
+				'^.*$': {
+					type: 'string',
+				},
+			},
+		},
+		emitted: {
+			type: 'object',
+			patternProperties: {
+				'^.*$': {
+					type: 'string',
+				},
+			},
+		},
+	},
+	required: ['emitted', 'requires'],
+};
 
 export const bundleInfoSchema = {
 	type: 'object',
@@ -38,17 +66,10 @@ export const bundleInfoSchema = {
 		checksums: {
 			type: 'object',
 			patternProperties: {
-				'^.*$': {
-					type: 'object',
-					patternProperties: {
-						'^.*$': {
-							type: 'string',
-						},
-					},
-				},
+				'^.*$': bundleChecksumSchema,
 			},
 		},
-		dist: {
+		js: {
 			type: 'array',
 			items: {
 				type: 'string',
@@ -56,7 +77,7 @@ export const bundleInfoSchema = {
 			uniqueItems: true,
 		},
 	},
-	required: ['version', 'runtimeOptions', 'pages', 'checksums', 'dist'],
+	required: ['version', 'runtimeOptions', 'pages', 'checksums', 'js'],
 };
 
 export * from './runtimeOptions.js';

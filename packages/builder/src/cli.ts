@@ -61,7 +61,7 @@ program
 
 			try {
 				await compileBack(cwd, true);
-				detachRuntime = runtime.attachRuntime(cwd, server);
+				detachRuntime = await runtime.attachRuntime(cwd, server);
 				console.log('Runtime attached');
 				deregisterDefaultHandlers();
 			} catch (err) {

@@ -116,10 +116,10 @@ function processPage<P extends Props = {}>(
 	};
 }
 
-export default function attachRuntime(
+export default async function attachRuntime(
 	cwd: string,
 	server: Server
-): DetachRuntime {
+): Promise<DetachRuntime> {
 	const paths = getPaths(cwd);
 	const bundleInfo: BundleInfo = JSON.parse(
 		readFileSync(paths.bundleInfoPath, 'utf-8')
@@ -142,9 +142,9 @@ export default function attachRuntime(
 	if (!bundleInfo.runtimeOptions.poweredByHeader)
 		expressServer.disable('x-powered-by');
 
-	for (const dist of bundleInfo.dist) {
-		const script = resolve(cwd, dist);
-		delete require.cache[script];
+	for (const dist in bundleInfo.js) {
+		const res = resolve(cwd, dist);
+		delete require.cache[res];
 	}
 
 	let app: ProcessedPage<AppProps>;

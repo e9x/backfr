@@ -1,16 +1,16 @@
+import { fileChecksum } from './checksums.js';
 import { Config, configSchema } from './config.js';
 import {
 	cssPlugin,
 	mediaPlugin,
 	svgPlugin,
-	fileChecksum,
 	AssetContext,
 	AssetLocation,
 	imagePlugin,
 } from './loaders.js';
 import { createFilter } from '@rollup/pluginutils';
 import Ajv from 'ajv';
-import runtime from 'backfr';
+import runtime, { BundleChecksum } from 'backfr';
 import { ESLint } from 'eslint';
 import { mkdir, readdir, readFile, writeFile } from 'fs/promises';
 import glob from 'glob';
@@ -88,7 +88,7 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 		version,
 		runtimeOptions: <runtime.RuntimeOptions>config.runtimeOptions,
 		pages: [],
-		dist: [],
+		js: [],
 		checksums: {},
 	};
 
@@ -206,16 +206,24 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 	if (errorCount)
 		throw new Error('Fix eslint errors before trying to compile again.');
 
-	const media = ({ id, contentHash }: AssetContext): AssetLocation => ({
-		file: join(
-			paths.outputStatic,
-			'media',
-			`${parse(id).name}.${contentHash.slice(-8)}${parse(id).ext}`
-		),
-		public: `/static/media/${parse(id).name}.${contentHash.slice(-8)}${
-			parse(id).ext
-		}`,
-	});
+	const tempDist: string[] = [];
+
+	const logEmit = (location: AssetLocation) => {
+		tempDist.push(location.file);
+		return location;
+	};
+
+	const media = ({ id, contentHash }: AssetContext): AssetLocation =>
+		logEmit({
+			file: join(
+				paths.outputStatic,
+				'media',
+				`${parse(id).name}.${contentHash.slice(-8)}${parse(id).ext}`
+			),
+			public: `/static/media/${parse(id).name}.${contentHash.slice(-8)}${
+				parse(id).ext
+			}`,
+		});
 
 	const includeMedia = 'src/**/{*.avif,*.webp,*.bmp,*.gif,*.jpeg,*.jpg,*.png}';
 	const includeCSS =
@@ -230,16 +238,35 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 		if (prevBundleInfo && js in prevBundleInfo.checksums) {
 			const goalChecksums = prevBundleInfo.checksums[js];
 
-			for (const file in goalChecksums) {
+			for (const file in goalChecksums.requires) {
 				const checksum = await fileChecksum(
 					resolve(cwd, file),
 					'sha256',
 					'base64'
 				);
 
-				if (checksum !== goalChecksums[file]) {
+				if (checksum !== goalChecksums.requires[file]) {
 					reuseBuild = false;
 					console.log(js, 'cannot be lazy compiled,', file, 'was updated');
+					break;
+				}
+			}
+
+			for (const file in goalChecksums.emitted) {
+				const checksum = await fileChecksum(
+					resolve(cwd, file),
+					'sha256',
+					'base64'
+				);
+
+				if (checksum !== goalChecksums.emitted[file]) {
+					reuseBuild = false;
+					console.log(
+						js,
+						'cannot be lazy compiled, asset',
+						file,
+						'was corrupted'
+					);
 					break;
 				}
 			}
@@ -249,7 +276,7 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 
 		const file = getDestination(js);
 
-		bundleInfo.dist.push(relative(cwd, file));
+		tempDist.push(file);
 
 		if (reuseBuild) {
 			console.log('Skip', js);
@@ -295,29 +322,31 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 					includeModule: 'src/**/{*.module.scss,*.module.sass,*.module.css}',
 					includeMedia,
 					media,
-					css: ({ id, contentHash }) => ({
-						file: join(
-							paths.outputStatic,
-							'css',
-							`${parse(id).name}.${contentHash.slice(-8)}.css`
-						),
-						public: `/static/css/${parse(id).name}.${contentHash.slice(
-							-8
-						)}.css`,
-					}),
+					css: ({ id, contentHash }) =>
+						logEmit({
+							file: join(
+								paths.outputStatic,
+								'css',
+								`${parse(id).name}.${contentHash.slice(-8)}.css`
+							),
+							public: `/static/css/${parse(id).name}.${contentHash.slice(
+								-8
+							)}.css`,
+						}),
 				}),
 				svgPlugin({
 					include: includeSVG,
-					svg: ({ id, contentHash }) => ({
-						file: join(
-							paths.outputStatic,
-							'media',
-							`${parse(id).name}.${contentHash.slice(-8)}.svg`
-						),
-						public: `/static/media/${parse(id).name}.${contentHash.slice(
-							-8
-						)}.svg`,
-					}),
+					svg: ({ id, contentHash }) =>
+						logEmit({
+							file: join(
+								paths.outputStatic,
+								'media',
+								`${parse(id).name}.${contentHash.slice(-8)}.svg`
+							),
+							public: `/static/media/${parse(id).name}.${contentHash.slice(
+								-8
+							)}.svg`,
+						}),
 				}),
 				sourceMap && sourcemaps(),
 				typescript({
@@ -334,10 +363,21 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 			sourcemap: true,
 		});
 
-		const record: Record<string, string> = {};
+		const record: BundleChecksum = {
+			emitted: {},
+			requires: {},
+		};
+
+		for (const dist of tempDist) {
+			record.emitted[relative(cwd, dist)] = await fileChecksum(
+				dist,
+				'sha256',
+				'base64'
+			);
+		}
 
 		for (const file of compiler.watchFiles) {
-			record[relative(cwd, file)] = await fileChecksum(
+			record.requires[relative(cwd, file)] = await fileChecksum(
 				file,
 				'sha256',
 				'base64'
