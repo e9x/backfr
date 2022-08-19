@@ -142,7 +142,7 @@ export default async function attachRuntime(
 	if (!bundleInfo.runtimeOptions.poweredByHeader)
 		expressServer.disable('x-powered-by');
 
-	for (const dist in bundleInfo.js) {
+	for (const dist of bundleInfo.js) {
 		const res = resolve(cwd, dist);
 		delete require.cache[res];
 	}

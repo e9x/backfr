@@ -206,25 +206,6 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 	if (errorCount)
 		throw new Error('Fix eslint errors before trying to compile again.');
 
-	const tempDist: string[] = [];
-
-	const logEmit = (location: AssetLocation) => {
-		tempDist.push(location.file);
-		return location;
-	};
-
-	const media = ({ id, contentHash }: AssetContext): AssetLocation =>
-		logEmit({
-			file: join(
-				paths.outputStatic,
-				'media',
-				`${parse(id).name}.${contentHash.slice(-8)}${parse(id).ext}`
-			),
-			public: `/static/media/${parse(id).name}.${contentHash.slice(-8)}${
-				parse(id).ext
-			}`,
-		});
-
 	const includeMedia = 'src/**/{*.avif,*.webp,*.bmp,*.gif,*.jpeg,*.jpg,*.png}';
 	const includeCSS =
 		'src/**/{*.module.scss,*.module.sass,*.module.css,*.scss,*.sass,*.css}';
@@ -233,6 +214,10 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 	const assetFilter = createFilter([includeCSS, includeMedia, includeSVG]);
 
 	for (const js of javascript) {
+		const file = getDestination(js);
+
+		bundleInfo.js.push(relative(cwd, file));
+
 		let reuseBuild = true;
 
 		if (prevBundleInfo && js in prevBundleInfo.checksums) {
@@ -280,15 +265,32 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 			reuseBuild = false;
 		}
 
-		const file = getDestination(js);
-
-		tempDist.push(file);
-
 		if (reuseBuild) {
 			console.log('Skip', js);
 			bundleInfo.checksums[js] = prevBundleInfo!.checksums[js];
 			continue;
 		}
+
+		const tempDist: string[] = [];
+
+		tempDist.push(file);
+
+		const logEmit = (location: AssetLocation) => {
+			tempDist.push(location.file);
+			return location;
+		};
+
+		const media = ({ id, contentHash }: AssetContext): AssetLocation =>
+			logEmit({
+				file: join(
+					paths.outputStatic,
+					'media',
+					`${parse(id).name}.${contentHash.slice(-8)}${parse(id).ext}`
+				),
+				public: `/static/media/${parse(id).name}.${contentHash.slice(-8)}${
+					parse(id).ext
+				}`,
+			});
 
 		console.log('Compile', js);
 
