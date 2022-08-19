@@ -6,6 +6,9 @@ import { expand } from 'dotenv-expand';
 import { config } from 'dotenv-flow';
 import { createServer, IncomingMessage, ServerResponse } from 'http';
 import { join } from 'path';
+import sourceMapSupport from 'source-map-support';
+
+sourceMapSupport.install();
 
 const program = new Command();
 

@@ -3,6 +3,9 @@ import { Command } from 'commander';
 import { expand } from 'dotenv-expand';
 import { config } from 'dotenv-flow';
 import { createServer } from 'http';
+import sourceMapSupport from 'source-map-support';
+
+sourceMapSupport.install();
 
 const program = new Command();
 
