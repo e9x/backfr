@@ -23,7 +23,7 @@
 	],
 	"homepage": "https://github.com/e9x/backfr/tree/master/packages/runtime",
 	"author": "",
-	"license": "ISC",
+	"license": "GPLv3",
 	"dependencies": {
 		"@backfr/types": "^1.0.0-beta.4",
 		"ajv": "^8.11.0",

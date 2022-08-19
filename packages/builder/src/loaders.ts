@@ -170,7 +170,7 @@ const convertStylesStringToObject = (stringStyles: string) => {
 					let reactProp = node.property;
 					if (reactProp.startsWith('-ms-'))
 						reactProp = 'ms-' + reactProp.slice(4);
-					reactProp = reactProp.replace(/[-:](.)/g, (match, char) =>
+					reactProp = reactProp.replace(/-(.)/g, (match, char) =>
 						char.toUpperCase()
 					);
 					styleObject[reactProp] =
@@ -212,26 +212,32 @@ export function svgPlugin(options: {
 
 			const svg = await readFile(id);
 
-			await writeFile(location.file, svg);
-
 			const optimized = optimize(svg);
 
+			const { data } = optimized as OptimizedSvg;
+
+			await writeFile(location.file, data);
+
 			if (resultIsError(optimized)) throw optimized.modernError;
+
+			const jsxComponent = data
+				.replace(/<svg((?: \w+="(?:[^"]|\\")*?")*)>/, '<svg$1 {...props}>')
+				.replace(
+					/(<.*?(?: \w+="(?:[^"]|\\")*?")*) style="((?:[^"]|\\")*?)"/g,
+					(match, padStart, style) =>
+						`${padStart} style={${JSON.stringify(
+							convertStylesStringToObject(style)
+						)}}`
+				)
+				.replace(
+					/ (xmlns|xlink):(\w+)/g,
+					(match, ns, word) => ns + word[0].toUpperCase() + word.slice(1)
+				);
 
 			const code =
 				`const url = ${JSON.stringify(location.public)};` +
 				`export default url;` +
-				`export const ReactComponent = (props) => (${(
-					optimized as OptimizedSvg
-				).data
-					.replace(/<svg((?: \w+="(?:[^"]|\\")*?")*)>/, '<svg$1 {...props}>')
-					.replace(
-						/(<.*?(?: \w+="(?:[^"]|\\")*?")*) style="((?:[^"]|\\")*?)"/g,
-						(match, padStart, style) =>
-							`${padStart} style={${JSON.stringify(
-								convertStylesStringToObject(style)
-							)}}`
-					)});`;
+				`export const ReactComponent = (props) => (${jsxComponent});`;
 
 			const result = ts.transpileModule(code, {
 				fileName: 'inline.js',
