@@ -160,33 +160,6 @@ function resultIsError(
 	return 'error' in result;
 }
 
-const convertStylesStringToObject = (stringStyles: string) => {
-	const styleObject: Record<string, any> = {};
-
-	walkCSS(
-		parseCSS(stringStyles, { context: 'declarationList', positions: true }),
-		{
-			enter(node: CssNode) {
-				if (node.type === 'Declaration') {
-					let reactProp = node.property;
-					if (reactProp.startsWith('-ms-'))
-						reactProp = 'ms-' + reactProp.slice(4);
-					reactProp = reactProp.replace(/-(.)/g, (match, char) =>
-						char.toUpperCase()
-					);
-					styleObject[reactProp] =
-						stringStyles.slice(
-							node.value.loc.start.offset,
-							node.value.loc.end.offset
-						) + (node.important ? ' !important' : '');
-				}
-			},
-		}
-	);
-
-	return styleObject;
-};
-
 export function svgPlugin(options: {
 	include: string;
 	svg(context: AssetContext): AssetLocation;
