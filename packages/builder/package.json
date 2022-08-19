@@ -1,6 +1,6 @@
 {
 	"name": "backfr-builder",
-	"version": "1.0.0-beta.4",
+	"version": "1.0.0-beta.6",
 	"description": "backfr build tool",
 	"type": "module",
 	"types": "dist/types.d.ts",
@@ -29,7 +29,7 @@
 		"@svgr/webpack": "^6.3.1",
 		"ajv": "^8.11.0",
 		"babel-preset-react-app": "^10.0.1",
-		"backfr": "^1.0.0-beta.4",
+		"backfr": "^1.0.0-beta.6",
 		"chokidar": "^3.5.3",
 		"commander": "^9.4.0",
 		"css-tree": "^2.2.0",
