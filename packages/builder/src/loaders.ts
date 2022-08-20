@@ -6,7 +6,7 @@ import { mkdir, writeFile, readFile, copyFile } from 'fs/promises';
 import HTMLtoJSX from 'htmltojsx';
 import MagicString from 'magic-string';
 import { dirname, join, parse } from 'path';
-import type { Plugin } from 'rollup';
+import type { Plugin, ResolvedId } from 'rollup';
 import sass from 'sass';
 import sharp from 'sharp';
 import type { OptimizedSvg, OptimizedError } from 'svgo';
@@ -297,15 +297,31 @@ export function cssPlugin(options: {
 						promises.push(
 							(async () => {
 								const value = <string>(<unknown>node.value);
-								const mediaID = await this.resolve(value, id);
-
-								if (!mediaID || !mediaFilter(mediaID.id)) return;
-
 								const parsed = parseImageLoaderQuery(value);
 
-								const location = parsed
-									? await loadImage(parsed.params, mediaID.id, options.media)
-									: await loadMedia(mediaID.id, options.media);
+								let location: AssetLocation;
+
+								if (parsed) {
+									const mediaID = await this.resolve(parsed.relative, id);
+
+									if (!mediaID) return;
+
+									this.addWatchFile(
+										`backfr/image?${parsed.params},${mediaID.id}`
+									);
+
+									location = await loadImage(
+										parsed.params,
+										mediaID.id,
+										options.media
+									);
+								} else {
+									const mediaID = await this.resolve(value, id);
+
+									if (!mediaID || !mediaFilter(mediaID.id)) return;
+
+									location = await loadMedia(mediaID.id, options.media);
+								}
 
 								cssMagic.overwrite(
 									node.loc.start.offset,
