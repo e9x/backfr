@@ -1,15 +1,17 @@
 import { fileChecksum, dataChecksum } from './checksums.js';
 import { createFilter } from '@rollup/pluginutils';
-import { parse as parseCSS, walk as walkCSS, CssNode } from 'css-tree';
+import type { CssNode } from 'css-tree';
+import { parse as parseCSS, walk as walkCSS } from 'css-tree';
 import { mkdir, writeFile, readFile, copyFile } from 'fs/promises';
 import HTMLtoJSX from 'htmltojsx';
 import imagemin from 'imagemin';
 import imageminWebp from 'imagemin-webp';
 import MagicString from 'magic-string';
 import { dirname, join, parse } from 'path';
-import { Plugin } from 'rollup';
+import type { Plugin } from 'rollup';
 import sass from 'sass';
-import { optimize, OptimizedSvg, OptimizedError } from 'svgo';
+import type { OptimizedSvg, OptimizedError } from 'svgo';
+import { optimize } from 'svgo';
 import ts from 'typescript';
 
 export interface AssetContext {

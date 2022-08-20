@@ -1,4 +1,4 @@
-import { ErrorPage } from '../types.js';
+import type { ErrorPage } from '../../types';
 
 const App: ErrorPage = ({ statusCode, title }) => {
 	return (

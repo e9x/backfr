@@ -1,16 +1,12 @@
 import { fileChecksum } from './checksums.js';
-import { Config, configSchema } from './config.js';
-import {
-	cssPlugin,
-	mediaPlugin,
-	svgPlugin,
-	AssetContext,
-	AssetLocation,
-	imagePlugin,
-} from './loaders.js';
+import type { Config } from './config.js';
+import { configSchema } from './config.js';
+import type { AssetContext, AssetLocation } from './loaders.js';
+import { cssPlugin, mediaPlugin, svgPlugin, imagePlugin } from './loaders.js';
 import { createFilter } from '@rollup/pluginutils';
 import Ajv from 'ajv';
-import runtime, { BundleChecksum } from 'backfr';
+import type { BundleChecksum } from 'backfr';
+import runtime from 'backfr';
 import { ESLint } from 'eslint';
 import { mkdir, readdir, readFile, writeFile } from 'fs/promises';
 import glob from 'glob';

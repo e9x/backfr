@@ -1,12 +1,13 @@
-import {
+import type {
 	AppPage,
 	BackPage,
 	BaseContext,
 	GetServerSideProps,
 	Props,
-} from './types.js';
+} from '../types';
 import { renderToPipeableStream } from 'react-dom/server';
-import { FilledContext, Helmet, HelmetProvider } from 'react-helmet-async';
+import { Helmet, HelmetProvider } from 'react-helmet-async';
+import type { FilledContext } from 'react-helmet-async';
 import { PassThrough } from 'stream';
 
 export { Helmet as Head };

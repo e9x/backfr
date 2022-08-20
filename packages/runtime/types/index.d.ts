@@ -51,18 +51,6 @@ export type GetServerSidePropsResult<P extends Props> =
 	| ResultB
 	| ResultC;
 
-// advanced type checks
-export const isRedirectA = (res: RedirectA | RedirectB): res is RedirectA =>
-	'statusCode' in res;
-
-export const isResultA = <P extends Props>(
-	res: GetServerSidePropsResult<P>
-): res is ResultA<P> => 'props' in res;
-
-export const isResultB = <P extends Props>(
-	res: GetServerSidePropsResult<P>
-): res is ResultB => 'redirect' in res;
-
 export type GetServerSideProps<
 	P extends Props = {},
 	C extends BaseContext = BaseContext
@@ -89,3 +77,58 @@ export interface ErrorCodeProps extends Props {
 export type ErrorCodePage = BackPage<ErrorCodeProps>;
 
 export type ErrorPage = BackPage<ErrorProps>;
+
+declare module '*.module.sass' {
+	const classes: { readonly [key: string]: string };
+	export default classes;
+}
+
+declare module '*.module.scss' {
+	const classes: { readonly [key: string]: string };
+	export default classes;
+}
+
+declare module '*.scss' {}
+
+declare module '*.css' {}
+
+declare module '*.avif' {
+	const url: string;
+	export default url;
+}
+
+declare module '*.bmp' {
+	const url: string;
+	export default url;
+}
+
+declare module '*.gif' {
+	const url: string;
+	export default url;
+}
+
+declare module '*.jpeg' {
+	const url: string;
+	export default url;
+}
+
+declare module '*.jpg' {
+	const url: string;
+	export default url;
+}
+
+declare module '*.png' {
+	const url: string;
+	export default url;
+}
+
+declare module '&ext=.*' {
+	const url: string;
+	export default url;
+}
+
+declare module '*.svg' {
+	const url: string;
+	export const ReactComponent: React.ComponentType<React.SVGAttributes<{}>>;
+	export default url;
+}

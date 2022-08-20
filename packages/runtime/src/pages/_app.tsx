@@ -1,4 +1,4 @@
-import { AppPage } from '../types.js';
+import type { AppPage } from '../../types';
 
 const App: AppPage = ({ Component, pageProps }) => {
 	return <Component {...pageProps} />;

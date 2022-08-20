@@ -30,6 +30,3 @@ for (const pkg of packages.map((pk) => `packages/${pk}/package.json`)) {
 
 	await writeFile(pkg, JSON.stringify(data, null, '\t') + '\n');
 }
-
-console.log('Run npm install to update lockfile:');
-console.log('$ npm install');

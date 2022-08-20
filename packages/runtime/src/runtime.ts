@@ -1,6 +1,4 @@
-import { BundleInfo, bundleInfoSchema } from './bundleInfo.js';
-import { ProcessedPage, renderPage, Head } from './render.js';
-import {
+import type {
 	AppProps,
 	BackHandler,
 	BackMiddlewareConfig,
@@ -8,16 +6,18 @@ import {
 	BaseContext,
 	ErrorCodeProps,
 	ErrorProps,
-	isRedirectA,
-	isResultA,
-	isResultB,
 	Props,
-} from './types.js';
+} from '../types';
+import type { BundleInfo } from './bundleInfo.js';
+import { bundleInfoSchema } from './bundleInfo.js';
+import type { ProcessedPage } from './render.js';
+import { renderPage, Head } from './render.js';
+import { isRedirectA, isResultA, isResultB } from './typeCheck.js';
 import Ajv from 'ajv';
 import express from 'express';
 import { readFileSync } from 'fs';
 import { STATUS_CODES } from 'http';
-import { Server } from 'http';
+import type { Server } from 'http';
 import createError from 'http-errors';
 import { join, resolve } from 'path';
 import semver from 'semver';

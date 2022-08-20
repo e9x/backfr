@@ -1,4 +1,5 @@
-import { RuntimeOptions, runtimeOptionsSchema } from 'backfr';
+import type { RuntimeOptions } from 'backfr';
+import { runtimeOptionsSchema } from 'backfr';
 
 export interface Config {
 	runtimeOptions?: Partial<RuntimeOptions>;

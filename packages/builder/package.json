@@ -51,6 +51,7 @@
 	},
 	"devDependencies": {
 		"@types/css-tree": "^1.0.7",
+		"@types/eslint": "^8.4.6",
 		"@types/estree": "^1.0.0",
 		"@types/glob": "^7.2.0",
 		"@types/htmltojsx": "^0.0.30",

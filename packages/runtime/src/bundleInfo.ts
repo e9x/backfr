@@ -1,4 +1,5 @@
-import { RuntimeOptions, runtimeOptionsSchema } from './runtimeOptions.js';
+import { runtimeOptionsSchema } from './runtimeOptions.js';
+import type { RuntimeOptions } from './runtimeOptions.js';
 
 export interface RouteMeta {
 	route: string;

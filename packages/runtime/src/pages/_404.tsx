@@ -1,4 +1,4 @@
-import { BackPage } from '../types.js';
+import type { BackPage } from '../../types';
 
 const NotFound: BackPage = () => {
 	return <>Not Found...</>;
