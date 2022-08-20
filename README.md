@@ -2,6 +2,10 @@
 
 Back from compiling all your server + client code, serving 100 KB bundles, and using overkill frameworks for small tasks.
 
+## Examples
+
+Example repo can be found [here](https://github.com/e9x/backfr-example).
+
 ## Packages
 
 - [backfr-builder](packages/builder/)
