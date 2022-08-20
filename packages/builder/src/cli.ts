@@ -84,7 +84,7 @@ program
 			port,
 		});
 
-		watcher.on('change', async () => {
+		watcher.on('all', async () => {
 			await lastCompilation;
 			lastCompilation = update();
 		});

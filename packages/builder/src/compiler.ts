@@ -388,14 +388,20 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 		for (const file of compiler.watchFiles) {
 			const parsed = parseImageLoaderQuery(file);
 
+			let theFile: string;
+
 			if (parsed) {
 				// parsed.relative should be absolute
 				if (!isAbsolute(parsed.relative))
 					throw new Error('Virtual image loader query was not absolute.');
+
+				theFile = parsed.relative;
+			} else {
+				theFile = file;
 			}
 
-			record.requires[relative(cwd, file)] = await fileChecksum(
-				parsed ? parsed.relative : file,
+			record.requires[relative(cwd, theFile)] = await fileChecksum(
+				theFile,
 				'sha256',
 				'base64'
 			);
