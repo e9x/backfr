@@ -60,6 +60,7 @@ async function loadImage(
 
 	if (width !== -1) {
 		const { width: metaWidth } = await transformer.metadata();
+		// no point in increasing image width beyond the source quality
 		if (metaWidth && metaWidth > width) transformer.resize(width);
 	}
 
