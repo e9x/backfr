@@ -1,4 +1,4 @@
-import type { BinaryLike, BinaryToTextEncoding} from 'crypto';
+import type { BinaryLike, BinaryToTextEncoding } from 'crypto';
 import { createHash } from 'crypto';
 import { createReadStream } from 'fs';
 

@@ -3,6 +3,7 @@ import { fileChecksum } from './checksums.js';
 import type { Config } from './config.js';
 import { configSchema } from './config.js';
 import type { AssetContext, AssetLocation } from './loaders.js';
+import { parseImageLoaderQuery } from './loaders.js';
 import { cssPlugin, mediaPlugin, svgPlugin, imagePlugin } from './loaders.js';
 import { createFilter } from '@rollup/pluginutils';
 import Ajv from 'ajv';
@@ -18,7 +19,7 @@ import { readFileSync } from 'fs';
 import { mkdir, readdir, readFile, writeFile } from 'fs/promises';
 import glob from 'glob';
 import { createRequire } from 'module';
-import { dirname, join, parse, relative, resolve, sep } from 'path';
+import { dirname, isAbsolute, join, parse, relative, resolve, sep } from 'path';
 import { rollup } from 'rollup';
 import sourcemaps from 'rollup-plugin-sourcemaps';
 import typescript from 'rollup-plugin-typescript2';
@@ -385,8 +386,16 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 		}
 
 		for (const file of compiler.watchFiles) {
+			const parsed = parseImageLoaderQuery(file);
+
+			if (parsed) {
+				// parsed.relative should be absolute
+				if (!isAbsolute(parsed.relative))
+					throw new Error('Virtual image loader query was not absolute.');
+			}
+
 			record.requires[relative(cwd, file)] = await fileChecksum(
-				file,
+				parsed ? parsed.relative : file,
 				'sha256',
 				'base64'
 			);

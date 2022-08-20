@@ -23,12 +23,12 @@ export interface AssetLocation {
 	file: string;
 }
 
-interface ParsedOptimizedImageQuery {
+export interface ParsedOptimizedImageQuery {
 	params: URLSearchParams;
 	relative: string;
 }
 
-function parseImageLoaderQuery(
+export function parseImageLoaderQuery(
 	query: string
 ): ParsedOptimizedImageQuery | undefined {
 	if (!query.startsWith('backfr/image?')) return;
@@ -46,21 +46,20 @@ function parseImageLoaderQuery(
 }
 
 async function loadImage(
-	data: ParsedOptimizedImageQuery,
+	params: ParsedOptimizedImageQuery['params'],
 	id: string,
 	media: (context: AssetContext) => AssetLocation
 ) {
-	let quality = parseInt(data.params.get('quality'));
+	let quality = parseInt(params.get('quality'));
 	if (isNaN(quality)) quality = 100;
 
-	let width = parseInt(data.params.get('width'));
+	let width = parseInt(params.get('width'));
 	if (isNaN(width)) width = -1;
 
 	const transformer = sharp(await readFile(id));
 
 	if (width !== -1) {
 		const { width: metaWidth } = await transformer.metadata();
-
 		if (metaWidth && metaWidth > width) transformer.resize(width);
 	}
 
@@ -91,7 +90,7 @@ async function loadMedia(
 ) {
 	const contentHash = await fileChecksum(id, 'md4', 'hex');
 	const location = media({
-		id: id,
+		id,
 		contentHash,
 	});
 
@@ -111,25 +110,44 @@ export function imagePlugin(options: {
 }): Plugin {
 	const pluginName = 'image-plugin';
 
+	interface ParsedMeta {
+		[pluginName]: {
+			params: ParsedOptimizedImageQuery['params'];
+			id: string;
+		};
+	}
+
 	return {
 		name: pluginName,
 		async resolveId(id, importer) {
 			const parsed = parseImageLoaderQuery(id);
 			if (!parsed) return;
 			const res = await this.resolve(parsed.relative, importer);
-			res.meta = {
-				[pluginName]: parsed,
+
+			return {
+				meta: {
+					[pluginName]: {
+						id: res.id,
+						params: parsed.params,
+					},
+				} as ParsedMeta,
+				external: false,
+				moduleSideEffects: true,
+				syntheticNamedExports: false,
+				id: `backfr/image?${parsed.params},${res.id}`,
 			};
-			return res;
 		},
-		async load(id) {
-			const { [pluginName]: data } = this.getModuleInfo(id).meta as {
-				[pluginName]: ParsedOptimizedImageQuery;
-			};
+		async load(ogId) {
+			const { [pluginName]: pluginMeta } = this.getModuleInfo(ogId)
+				.meta as ParsedMeta;
 
-			if (!data) return;
+			if (!pluginMeta) return;
 
-			const location = await loadImage(data, id, options.media);
+			const { params, id } = pluginMeta;
+
+			this.addWatchFile(id);
+
+			const location = await loadImage(params, id, options.media);
 
 			return {
 				code: `const url = ${JSON.stringify(
@@ -139,7 +157,6 @@ export function imagePlugin(options: {
 		},
 	};
 }
-
 export function mediaPlugin(options: {
 	include: string;
 	media: (context: AssetContext) => AssetLocation;
@@ -286,7 +303,7 @@ export function cssPlugin(options: {
 								const parsed = parseImageLoaderQuery(value);
 
 								const location = parsed
-									? await loadImage(parsed, mediaID.id, options.media)
+									? await loadImage(parsed.params, mediaID.id, options.media)
 									: await loadMedia(mediaID.id, options.media);
 
 								cssMagic.overwrite(
