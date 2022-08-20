@@ -3,7 +3,7 @@ import { createFilter } from '@rollup/pluginutils';
 import type { CssNode } from 'css-tree';
 import { parse as parseCSS, walk as walkCSS } from 'css-tree';
 import { mkdir, writeFile, readFile, copyFile } from 'fs/promises';
-import HTMLtoJSX from 'htmltojsx';
+import HTMLtoJSX from 'htmltojsx-too';
 import MagicString from 'magic-string';
 import { dirname, join, parse } from 'path';
 import type { Plugin } from 'rollup';
