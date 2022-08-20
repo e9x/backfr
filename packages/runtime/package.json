@@ -10,7 +10,11 @@
 		"bin.js",
 		"head.js",
 		"head.d.ts",
-		"types/index.d.ts"
+		"tools.js",
+		"tools.d.ts",
+		"index.d.ts",
+		"types/index.d.ts",
+		"types/global.d.ts"
 	],
 	"scripts": {
 		"build": "tsc",

@@ -6,6 +6,8 @@
 	"bin": "bin.js",
 	"files": [
 		"dist",
+		"freeImport.js",
+		"freeImport.d.ts",
 		"bin.js"
 	],
 	"scripts": {

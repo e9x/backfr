@@ -6,13 +6,17 @@ import type {
 	BaseContext,
 	ErrorCodeProps,
 	ErrorProps,
+	GetServerSidePropsResult,
 	Props,
+	RedirectA,
+	RedirectB,
+	ResultA,
+	ResultB,
 } from '../types';
 import type { BundleInfo } from './bundleInfo.js';
 import { bundleInfoSchema } from './bundleInfo.js';
 import type { ProcessedPage } from './render.js';
 import { renderPage, Head } from './render.js';
-import { isRedirectA, isResultA, isResultB } from './typeCheck.js';
 import Ajv from 'ajv';
 import express from 'express';
 import { readFileSync } from 'fs';
@@ -23,6 +27,18 @@ import { join, resolve } from 'path';
 import semver from 'semver';
 
 export { Head };
+
+// advanced type checks
+export const isRedirectA = (res: RedirectA | RedirectB): res is RedirectA =>
+	'statusCode' in res;
+
+export const isResultA = <P extends Props>(
+	res: GetServerSidePropsResult<P>
+): res is ResultA<P> => 'props' in res;
+
+export const isResultB = <P extends Props>(
+	res: GetServerSidePropsResult<P>
+): res is ResultB => 'redirect' in res;
 
 export function getPaths(cwd: string) {
 	const output = join(cwd, '.back');
