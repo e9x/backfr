@@ -6,7 +6,7 @@ import { mkdir, writeFile, readFile, copyFile } from 'fs/promises';
 import HTMLtoJSX from 'htmltojsx';
 import MagicString from 'magic-string';
 import { dirname, join, parse } from 'path';
-import type { Plugin, ResolvedId } from 'rollup';
+import type { Plugin } from 'rollup';
 import sass from 'sass';
 import sharp from 'sharp';
 import type { OptimizedSvg, OptimizedError } from 'svgo';
