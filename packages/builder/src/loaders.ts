@@ -4,12 +4,11 @@ import type { CssNode } from 'css-tree';
 import { parse as parseCSS, walk as walkCSS } from 'css-tree';
 import { mkdir, writeFile, readFile, copyFile } from 'fs/promises';
 import HTMLtoJSX from 'htmltojsx';
-import imagemin from 'imagemin';
-import imageminWebp from 'imagemin-webp';
 import MagicString from 'magic-string';
 import { dirname, join, parse } from 'path';
 import type { Plugin } from 'rollup';
 import sass from 'sass';
+import sharp from 'sharp';
 import type { OptimizedSvg, OptimizedError } from 'svgo';
 import { optimize } from 'svgo';
 import ts from 'typescript';
@@ -29,12 +28,12 @@ interface ParsedOptimizedImageQuery {
 	relative: string;
 }
 
-function parseOptimizeImageQuery(
+function parseImageLoaderQuery(
 	query: string
 ): ParsedOptimizedImageQuery | undefined {
-	if (!query.startsWith('optimizeImage?')) return;
+	if (!query.startsWith('backfr/image?')) return;
 
-	const end = query.slice('optimizeImage'.length);
+	const end = query.slice('backfr/image'.length);
 	const lastComma = end.lastIndexOf(',');
 	if (lastComma === -1) return;
 
@@ -54,11 +53,22 @@ async function loadImage(
 	let quality = parseInt(data.params.get('quality'));
 	if (isNaN(quality)) quality = 100;
 
-	const [output] = await imagemin([id], {
-		plugins: [imageminWebp({ quality })],
-	});
+	let width = parseInt(data.params.get('width'));
+	if (isNaN(width)) width = -1;
 
-	const contentHash = dataChecksum(output.data, 'md4', 'hex');
+	const transformer = sharp(await readFile(id));
+
+	if (width !== -1) {
+		const { width: metaWidth } = await transformer.metadata();
+
+		if (metaWidth && metaWidth > width) transformer.resize(width);
+	}
+
+	transformer.webp({ quality });
+
+	const optimizedBuffer = await transformer.toBuffer();
+
+	const contentHash = dataChecksum(optimizedBuffer, 'md4', 'hex');
 	const betterID = join(dirname(id), parse(id).name + '.webp');
 	const context: AssetContext = { id: betterID, contentHash };
 
@@ -70,7 +80,7 @@ async function loadImage(
 		if (err?.code !== 'EEXIST') throw err;
 	}
 
-	await writeFile(location.file, output.data);
+	await writeFile(location.file, optimizedBuffer);
 
 	return location;
 }
@@ -104,7 +114,7 @@ export function imagePlugin(options: {
 	return {
 		name: pluginName,
 		async resolveId(id, importer) {
-			const parsed = parseOptimizeImageQuery(id);
+			const parsed = parseImageLoaderQuery(id);
 			if (!parsed) return;
 			const res = await this.resolve(parsed.relative, importer);
 			res.meta = {
@@ -273,7 +283,7 @@ export function cssPlugin(options: {
 
 								if (!mediaID || !mediaFilter(mediaID.id)) return;
 
-								const parsed = parseOptimizeImageQuery(value);
+								const parsed = parseImageLoaderQuery(value);
 
 								const location = parsed
 									? await loadImage(parsed, mediaID.id, options.media)
@@ -328,7 +338,7 @@ export function cssPlugin(options: {
 			}
 
 			return {
-				code: `import { exportCSS } from "backfr"; exportCSS(${JSON.stringify(
+				code: `import { exportCSS } from "backfr/tools"; exportCSS(${JSON.stringify(
 					location.public
 				)}); const styles = ${JSON.stringify(
 					classNames

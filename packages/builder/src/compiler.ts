@@ -1,3 +1,4 @@
+import freeImport from '../freeImport.js';
 import { fileChecksum } from './checksums.js';
 import type { Config } from './config.js';
 import { configSchema } from './config.js';
@@ -5,9 +6,15 @@ import type { AssetContext, AssetLocation } from './loaders.js';
 import { cssPlugin, mediaPlugin, svgPlugin, imagePlugin } from './loaders.js';
 import { createFilter } from '@rollup/pluginutils';
 import Ajv from 'ajv';
-import type { BundleChecksum } from 'backfr';
-import runtime from 'backfr';
+import { getPaths, bundleInfoSchema } from 'backfr/tools';
+import type {
+	BundleChecksum,
+	BundleInfo,
+	RuntimeOptions,
+	RouteMeta,
+} from 'backfr/tools';
 import { ESLint } from 'eslint';
+import { readFileSync } from 'fs';
 import { mkdir, readdir, readFile, writeFile } from 'fs/promises';
 import glob from 'glob';
 import { createRequire } from 'module';
@@ -18,23 +25,20 @@ import typescript from 'rollup-plugin-typescript2';
 import rsort from 'route-sort';
 import semver from 'semver';
 import ts from 'typescript';
-import { fileURLToPath } from 'url';
 import { promisify } from 'util';
 
 const ajv = new Ajv();
 
 const globP = promisify(glob);
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
 export const { version }: { version: string } = JSON.parse(
-	await readFile(join(__dirname, '..', 'package.json'), 'utf-8')
+	readFileSync(join(__dirname, '..', 'package.json'), 'utf-8')
 );
 
 export default async function compileBack(cwd: string, isDevelopment: boolean) {
 	process.env.NODE_ENV = isDevelopment ? 'development' : 'production';
 
-	const paths = runtime.getPaths(cwd);
+	const paths = getPaths(cwd);
 
 	const configFile = (await readdir(cwd)).find(
 		(file) => file === 'back.config.js' || file === 'back.config.mjs'
@@ -42,7 +46,7 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 
 	if (!configFile) throw new Error('Config file missing');
 
-	const { default: config } = (await import(resolve(cwd, configFile))) as {
+	const { default: config } = (await freeImport(resolve(cwd, configFile))) as {
 		default: Config;
 	};
 
@@ -61,14 +65,14 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 		if (err?.code !== 'EEXIST') throw err;
 	}
 
-	let prevBundleInfo: runtime.BundleInfo | undefined;
+	let prevBundleInfo: BundleInfo | undefined;
 
 	try {
-		const parsed: runtime.BundleInfo = JSON.parse(
+		const parsed: BundleInfo = JSON.parse(
 			await readFile(paths.bundleInfoPath, 'utf-8')
 		);
 
-		const validate = ajv.compile<runtime.BundleInfo>(runtime.bundleInfoSchema);
+		const validate = ajv.compile<BundleInfo>(bundleInfoSchema);
 
 		if (validate(parsed) && semver.satisfies(version, parsed.version))
 			prevBundleInfo = parsed;
@@ -80,9 +84,9 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 	config.runtimeOptions ||= {};
 	config.runtimeOptions.poweredByHeader ??= true;
 
-	const bundleInfo: runtime.BundleInfo = {
+	const bundleInfo: BundleInfo = {
 		version,
-		runtimeOptions: <runtime.RuntimeOptions>config.runtimeOptions,
+		runtimeOptions: <RuntimeOptions>config.runtimeOptions,
 		pages: [],
 		js: [],
 		checksums: {},
@@ -120,7 +124,7 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 		);
 	};
 
-	const pages: runtime.RouteMeta[] = [];
+	const pages: RouteMeta[] = [];
 
 	for (const js of await globP('src/pages/**/{*.tsx,*.jsx,*.ts,*.js}', {
 		cwd,

@@ -1,5 +1,6 @@
 import compileBack, { version } from './compiler.js';
-import runtime from 'backfr';
+import type { DetachRuntime } from 'backfr/tools';
+import { getPaths, attachRuntime } from 'backfr/tools';
 import chokidar from 'chokidar';
 import { Command } from 'commander';
 import { expand } from 'dotenv-expand';
@@ -31,7 +32,7 @@ program
 		port ??= 3000;
 
 		const cwd = process.cwd();
-		const paths = runtime.getPaths(cwd);
+		const paths = getPaths(cwd);
 		const watcher = chokidar.watch(
 			[join(cwd, 'back.config.js'), join(cwd, 'back.config.mjs'), paths.src],
 			{
@@ -40,7 +41,7 @@ program
 		);
 
 		const server = createServer();
-		let detachRuntime: runtime.DetachRuntime | undefined;
+		let detachRuntime: DetachRuntime | undefined;
 		let lastCompilation = Promise.resolve();
 
 		const defaultRequest = (req: IncomingMessage, res: ServerResponse) => {
@@ -65,7 +66,7 @@ program
 
 			try {
 				await compileBack(cwd, true);
-				detachRuntime = await runtime.attachRuntime(cwd, server);
+				detachRuntime = await attachRuntime(cwd, server);
 				console.log('Runtime attached');
 				deregisterDefaultHandlers();
 			} catch (err) {

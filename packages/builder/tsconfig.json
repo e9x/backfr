@@ -3,11 +3,12 @@
 		"target": "ESNext",
 		"lib": ["ESNext"],
 		"moduleResolution": "Node",
-		"module": "ESNext",
+		"module": "CommonJS",
 		"types": ["node"],
 		"outDir": "dist",
 		"declaration": true,
 		"esModuleInterop": true,
 		"allowSyntheticDefaultImports": true
-	}
+	},
+	"include": ["src/**/*"]
 }

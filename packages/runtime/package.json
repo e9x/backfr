@@ -3,11 +3,13 @@
 	"version": "1.0.0-beta.9",
 	"description": "backfr runtime",
 	"type": "commonjs",
-	"main": "dist/index.js",
+	"types": "index.d.ts",
 	"bin": "bin.js",
 	"files": [
 		"dist",
 		"bin.js",
+		"head.js",
+		"head.d.ts",
 		"types/index.d.ts"
 	],
 	"scripts": {
