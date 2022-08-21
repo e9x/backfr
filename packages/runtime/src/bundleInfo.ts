@@ -9,6 +9,7 @@ export interface RouteMeta {
 export interface BundleInfo {
 	version: string;
 	pages: RouteMeta[];
+	middleware: string;
 	js: string[];
 	runtimeOptions: RuntimeOptions;
 	checksums: Record<string, BundleChecksum>;
@@ -46,6 +47,9 @@ export const bundleInfoSchema = {
 	type: 'object',
 	properties: {
 		version: {
+			type: 'string',
+		},
+		middleware: {
 			type: 'string',
 		},
 		runtimeOptions: runtimeOptionsSchema,

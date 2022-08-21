@@ -168,6 +168,17 @@ export default async function attachRuntime(
 
 	const errorCodePages = new Map<number, ProcessedPage<ErrorCodeProps>>();
 
+	if (bundleInfo.middleware) {
+		const component = requireComponent(resolve(cwd, bundleInfo.middleware));
+
+		const mid = processMiddleware(component);
+
+		for (const match of mid.config.matcher)
+			expressServer.use(match, async (req, res, next) => {
+				mid.api(req, res, next);
+			});
+	}
+
 	for (const { route, src } of bundleInfo.pages) {
 		const component = requireComponent(resolve(cwd, src));
 
@@ -194,16 +205,6 @@ export default async function attachRuntime(
 					break;
 				case '/_app':
 					app = processPage<AppProps>(component);
-					break;
-				case '/middleware':
-					{
-						const mid = processMiddleware(component);
-
-						for (const match of mid.config.matcher)
-							expressServer.use(match, async (req, res, next) => {
-								mid.api(req, res, next);
-							});
-					}
 					break;
 				default:
 					{

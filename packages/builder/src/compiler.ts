@@ -104,6 +104,17 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 
 	const javascript = await globP('src/**/{*.tsx,*.jsx,*.ts,*.js}', { cwd });
 
+	// only ONE is selected
+	const [middleware] = await globP(
+		'src/{middleware.tsx,middleware.jsx,middleware.ts,middleware.js}',
+		{ cwd }
+	);
+
+	if (middleware) {
+		const dest = getDestination(middleware);
+		bundleInfo.middleware = dest;
+	}
+
 	/*
 	/index
 	/api/abc
