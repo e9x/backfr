@@ -1,6 +1,5 @@
 import compileBack, { version } from './compiler.js';
 import { getPaths } from 'backfr/tools';
-import { fork } from 'child_process';
 import chokidar from 'chokidar';
 import { Command } from 'commander';
 import { expand } from 'dotenv-expand';
@@ -8,6 +7,7 @@ import { config } from 'dotenv-flow';
 import { dirname, join } from 'path';
 import sourceMapSupport from 'source-map-support';
 import { fileURLToPath } from 'url';
+import { Worker } from 'worker_threads';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const spawner = join(__dirname, 'spawner.js');
@@ -26,7 +26,12 @@ program.action(async () => {
 });
 
 async function spawnRuntime(cwd: string, port: number) {
-	const runtime = fork(spawner, [port.toString()], { stdio: 'inherit', cwd });
+	const runtime = new Worker(spawner, {
+		workerData: {
+			port,
+			cwd,
+		},
+	});
 
 	await new Promise<void>((resolve, reject) => {
 		const cleanup = () => {
@@ -45,11 +50,11 @@ async function spawnRuntime(cwd: string, port: number) {
 		};
 
 		runtime.once('error', errorHandler);
-		runtime.once('spawn', spawnHandler);
+		runtime.once('online', spawnHandler);
 	});
 
 	return () => {
-		runtime.kill('SIGKILL');
+		runtime.terminate();
 	};
 }
 

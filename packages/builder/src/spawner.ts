@@ -1,8 +1,9 @@
 import createHandler from 'backfr/tools';
 import { createServer } from 'http';
+import { workerData } from 'worker_threads';
 
-const cwd = process.cwd();
-const port = parseInt(process.argv[2]);
+const { port, cwd } = workerData as { port: number; cwd: string };
+
 const server = createServer();
 
 const handler = await createHandler(cwd);
