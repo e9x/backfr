@@ -170,7 +170,11 @@ export default async function createHandler(cwd: string) {
 
 		for (const match of mid.config.matcher)
 			expressServer.use(match, async (req, res, next) => {
-				mid.api(req, res, next);
+				try {
+					await mid.api(req, res, next);
+				} catch (err) {
+					next(err);
+				}
 			});
 	}
 
@@ -191,7 +195,11 @@ export default async function createHandler(cwd: string) {
 			const api = processAPI(component);
 
 			expressServer.all(route, async (req, res, next) => {
-				api(req, res, next);
+				try {
+					await api(req, res, next);
+				} catch (err) {
+					next(err);
+				}
 			});
 		} else
 			switch (route) {
@@ -206,28 +214,27 @@ export default async function createHandler(cwd: string) {
 						const page = processPage(component);
 
 						expressServer.all(route, async (req, res, next) => {
-							const context: BaseContext = { req, res };
+							try {
+								const context: BaseContext = { req, res };
 
-							const result = await page.getServerSideProps(context);
+								const result = await page.getServerSideProps(context);
 
-							if (isResultA(result)) {
-								try {
+								if (isResultA(result)) {
 									await renderPage(page, result.props, app, context);
-								} catch (err) {
-									console.log(err);
-									next(err);
-								}
-							} else if (isResultB(result)) {
-								if (isRedirectA(result.redirect)) {
-									res.status(result.redirect.statusCode);
-								} else {
-									res.status(result.redirect.permanent ? 301 : 307);
-								}
+								} else if (isResultB(result)) {
+									if (isRedirectA(result.redirect)) {
+										res.status(result.redirect.statusCode);
+									} else {
+										res.status(result.redirect.permanent ? 301 : 307);
+									}
 
-								res.redirect(result.redirect.destination);
-							} else {
-								// .notFound has to be true, otherwise the result is invalid
-								next();
+									res.redirect(result.redirect.destination);
+								} else {
+									// .notFound has to be true, otherwise the result is invalid
+									next();
+								}
+							} catch (err) {
+								next(err);
 							}
 						});
 					}
@@ -271,6 +278,11 @@ export default async function createHandler(cwd: string) {
 		if (createError.isHttpError(err)) {
 			statusCode = err.statusCode;
 			expose = err.expose !== false;
+		}
+
+		if (!expose) {
+			console.error('Internal error:');
+			console.error(err);
 		}
 
 		const title = expose ? message : STATUS_CODES[statusCode] || '';

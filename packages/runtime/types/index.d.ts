@@ -11,7 +11,7 @@ export type BackHandler = (
 	req: Request,
 	res: Response,
 	next: NextFunction
-) => void;
+) => void | Promise<void>;
 
 export type Props = object;
 
