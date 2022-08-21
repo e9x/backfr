@@ -16,7 +16,7 @@ for (const pkg of packages.map((pk) => `packages/${pk}/package.json`)) {
 		if (data[x]) {
 			for (const pn of packageNames) {
 				if (pn in data[x]) {
-					data[x][pn] = '^' + version;
+					data[x][pn] = version;
 				}
 			}
 		}
