@@ -33,24 +33,9 @@ async function spawnRuntime(cwd: string, port: number) {
 		},
 	});
 
-	await new Promise<void>((resolve, reject) => {
-		const cleanup = () => {
-			runtime.off('error', errorHandler);
-			runtime.off('spawn', spawnHandler);
-		};
-
-		const errorHandler = (err: Error) => {
-			cleanup();
-			reject(err);
-		};
-
-		const spawnHandler = () => {
-			cleanup();
-			resolve();
-		};
-
-		runtime.once('error', errorHandler);
-		runtime.once('online', spawnHandler);
+	runtime.on('error', (err) => {
+		console.log('Error:');
+		console.error(err);
 	});
 
 	return () => {
