@@ -1,4 +1,3 @@
-import freeImport from '../freeImport.js';
 import { fileChecksum } from './checksums.js';
 import type { Config } from './config.js';
 import { configSchema } from './config.js';
@@ -15,7 +14,6 @@ import type {
 	RouteMeta,
 } from 'backfr/tools';
 import { ESLint } from 'eslint';
-import { readFileSync } from 'fs';
 import { mkdir, readdir, readFile, writeFile } from 'fs/promises';
 import glob from 'glob';
 import { createRequire } from 'module';
@@ -26,6 +24,7 @@ import typescript from 'rollup-plugin-typescript2';
 import rsort from 'route-sort';
 import semver from 'semver';
 import ts from 'typescript';
+import { fileURLToPath } from 'url';
 import { promisify } from 'util';
 
 const ajv = new Ajv();
@@ -33,7 +32,10 @@ const ajv = new Ajv();
 const globP = promisify(glob);
 
 export const { version }: { version: string } = JSON.parse(
-	readFileSync(join(__dirname, '..', 'package.json'), 'utf-8')
+	await readFile(
+		join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json'),
+		'utf-8'
+	)
 );
 
 export default async function compileBack(cwd: string, isDevelopment: boolean) {
@@ -47,7 +49,7 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 
 	if (!configFile) throw new Error('Config file missing');
 
-	const { default: config } = (await freeImport(resolve(cwd, configFile))) as {
+	const { default: config } = (await import(resolve(cwd, configFile))) as {
 		default: Config;
 	};
 
@@ -89,7 +91,6 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 		version,
 		runtimeOptions: <RuntimeOptions>config.runtimeOptions,
 		pages: [],
-		js: [],
 		checksums: {},
 	};
 
@@ -202,6 +203,9 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 	if (parsedTsConfig.options.jsx !== ts.JsxEmit.ReactJSX)
 		throw new Error(`tsconfig.jsx must be "react-jsx". Incompatible project.`);
 
+	if (parsedTsConfig.options.module !== ts.ModuleKind.ESNext)
+		throw new Error(`tsconfig.module must be "ESNext". Incompatible project.`);
+
 	const lint = new ESLint({ cwd });
 
 	// fake async api haha
@@ -227,8 +231,6 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 
 	for (const js of javascript) {
 		const file = getDestination(js);
-
-		bundleInfo.js.push(relative(cwd, file));
 
 		let reuseBuild = true;
 
@@ -377,7 +379,7 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 		});
 
 		await compiler.write({
-			format: 'commonjs',
+			format: 'esm',
 			file,
 			exports: 'named',
 			sourcemap: true,
@@ -421,6 +423,6 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 		bundleInfo.checksums[js] = record;
 	}
 
-	await writeFile(paths.packagePath, JSON.stringify({ type: 'commonjs' }));
+	await writeFile(paths.packagePath, JSON.stringify({ type: 'module' }));
 	await writeFile(paths.bundleInfoPath, JSON.stringify(bundleInfo));
 }

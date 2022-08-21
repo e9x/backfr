@@ -2,15 +2,17 @@
 	"name": "backfr",
 	"version": "1.0.0-beta.10",
 	"description": "backfr runtime",
-	"type": "commonjs",
+	"type": "module",
 	"types": "index.d.ts",
 	"bin": "bin.js",
+	"exports": {
+		"./tools": "./dist/tools.js",
+		"./head": "./dist/head.js"
+	},
 	"files": [
 		"dist",
 		"bin.js",
-		"head.js",
 		"head.d.ts",
-		"tools.js",
 		"tools.d.ts",
 		"index.d.ts",
 		"types/index.d.ts",

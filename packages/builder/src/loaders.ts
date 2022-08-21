@@ -224,7 +224,9 @@ export function svgPlugin(options: {
 
 			await writeFile(location.file, data);
 
-			const jsxComponent = new HTMLtoJSX({ createClass: false }).convert(data);
+			const jsxComponent = new HTMLtoJSX.default({
+				createClass: false,
+			}).convert(data);
 
 			const code =
 				`const url = ${JSON.stringify(location.public)};` +

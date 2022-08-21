@@ -19,12 +19,13 @@ import type { ProcessedPage } from './render.js';
 import { renderPage, Head } from './render.js';
 import Ajv from 'ajv';
 import express from 'express';
-import { readFileSync } from 'fs';
+import { readFile } from 'fs/promises';
 import { STATUS_CODES } from 'http';
 import type { Server } from 'http';
 import createError from 'http-errors';
-import { join, resolve } from 'path';
+import { dirname, join, resolve } from 'path';
 import semver from 'semver';
+import { fileURLToPath } from 'url';
 
 export { Head };
 
@@ -64,8 +65,10 @@ export function getPaths(cwd: string) {
 
 const ajv = new Ajv();
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
 export const { version } = JSON.parse(
-	readFileSync(join(__dirname, '..', 'package.json'), 'utf-8')
+	await readFile(join(__dirname, '..', 'package.json'), 'utf-8')
 ) as { version: string };
 
 export type DetachRuntime = () => void;
@@ -77,12 +80,12 @@ interface BackComponent {
 	css: string[];
 }
 
-function requireComponent(src: string): BackComponent {
+async function requireComponent(src: string): Promise<BackComponent> {
 	const css: string[] = [];
 	lastModuleCSS = css;
 
 	// eslint-disable-next-line @typescript-eslint/no-var-requires
-	const mod = require(src);
+	const mod = await import(src);
 
 	lastModuleCSS = undefined;
 
@@ -138,7 +141,7 @@ export default async function attachRuntime(
 ): Promise<DetachRuntime> {
 	const paths = getPaths(cwd);
 	const bundleInfo: BundleInfo = JSON.parse(
-		readFileSync(paths.bundleInfoPath, 'utf-8')
+		await readFile(paths.bundleInfoPath, 'utf-8')
 	);
 
 	const validateBundleInfo = ajv.compile<BundleInfo>(bundleInfoSchema);
@@ -158,18 +161,15 @@ export default async function attachRuntime(
 	if (!bundleInfo.runtimeOptions.poweredByHeader)
 		expressServer.disable('x-powered-by');
 
-	for (const dist of bundleInfo.js) {
-		const res = resolve(cwd, dist);
-		delete require.cache[res];
-	}
-
 	let app: ProcessedPage<AppProps>;
 	let error: ProcessedPage<ErrorProps>;
 
 	const errorCodePages = new Map<number, ProcessedPage<ErrorCodeProps>>();
 
 	if (bundleInfo.middleware) {
-		const component = requireComponent(resolve(cwd, bundleInfo.middleware));
+		const component = await requireComponent(
+			resolve(cwd, bundleInfo.middleware)
+		);
 
 		const mid = processMiddleware(component);
 
@@ -180,7 +180,7 @@ export default async function attachRuntime(
 	}
 
 	for (const { route, src } of bundleInfo.pages) {
-		const component = requireComponent(resolve(cwd, src));
+		const component = await requireComponent(resolve(cwd, src));
 
 		const [, errorCode] = route.match(/^\/_(\d{3})$/) || [];
 
@@ -245,16 +245,18 @@ export default async function attachRuntime(
 			errorCodePages.set(
 				404,
 				processPage<ErrorCodeProps>(
-					requireComponent(require.resolve('./pages/_404.js'))
+					await requireComponent(join(__dirname, 'pages', '_404.js'))
 				)
 			);
 
 		error ||= processPage<ErrorProps>(
-			requireComponent(require.resolve('./pages/_error.js'))
+			await requireComponent(join(__dirname, 'pages', '_error.js'))
 		);
 	}
 
-	app ||= processPage(requireComponent(require.resolve('./pages/_app.js')));
+	app ||= processPage(
+		await requireComponent(require.resolve('./pages/_app.js'))
+	);
 
 	expressServer.use(express.static(paths.publicFiles));
 	expressServer.use('/static/', express.static(paths.outputStatic));

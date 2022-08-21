@@ -3,7 +3,7 @@
 		"target": "ESNext",
 		"lib": ["ESNext"],
 		"moduleResolution": "Node",
-		"module": "CommonJS",
+		"module": "ESNext",
 		"types": ["node"],
 		"jsx": "react-jsx",
 		"outDir": "dist",

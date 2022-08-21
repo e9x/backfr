@@ -9,8 +9,7 @@ export interface RouteMeta {
 export interface BundleInfo {
 	version: string;
 	pages: RouteMeta[];
-	middleware: string;
-	js: string[];
+	middleware?: string;
 	runtimeOptions: RuntimeOptions;
 	checksums: Record<string, BundleChecksum>;
 }
@@ -74,15 +73,8 @@ export const bundleInfoSchema = {
 				'^.*$': bundleChecksumSchema,
 			},
 		},
-		js: {
-			type: 'array',
-			items: {
-				type: 'string',
-			},
-			uniqueItems: true,
-		},
 	},
-	required: ['version', 'runtimeOptions', 'pages', 'checksums', 'js'],
+	required: ['version', 'runtimeOptions', 'pages', 'checksums'],
 };
 
 export * from './runtimeOptions.js';
