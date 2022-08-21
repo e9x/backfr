@@ -1,4 +1,4 @@
-import attachRuntime, { version } from './runtime.js';
+import createHandler, { version } from './runtime.js';
 import { Command } from 'commander';
 import { expand } from 'dotenv-expand';
 import { config } from 'dotenv-flow';
@@ -21,17 +21,20 @@ program
 	.action(async ({ port, host }: { port?: number; host?: string }) => {
 		const cwd = process.cwd();
 		const server = createServer();
-
-		await attachRuntime(cwd, server);
+		const handler = await createHandler(cwd);
 
 		const envPort = parseInt(process.env.PORT);
 		if (!isNaN(envPort)) port ??= envPort;
 		port ??= 3000;
 		host ??= '0.0.0.0';
 
-		console.log('Listening on', port);
+		server.on('request', (req, res) => {
+			handler(req, res);
+		});
 
-		server.listen({ host, port });
+		server.listen({ host, port }, () => {
+			console.log('Listening on', port);
+		});
 	});
 
 program.parse(process.argv);

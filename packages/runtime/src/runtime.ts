@@ -20,8 +20,8 @@ import { renderPage, Head } from './render.js';
 import Ajv from 'ajv';
 import express from 'express';
 import { readFile } from 'fs/promises';
+import type { IncomingMessage, ServerResponse } from 'http';
 import { STATUS_CODES } from 'http';
-import type { Server } from 'http';
 import createError from 'http-errors';
 import { dirname, join, resolve } from 'path';
 import semver from 'semver';
@@ -70,8 +70,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 export const { version } = JSON.parse(
 	await readFile(join(__dirname, '..', 'package.json'), 'utf-8')
 ) as { version: string };
-
-export type DetachRuntime = () => void;
 
 let lastModuleCSS: string[] | undefined;
 
@@ -135,10 +133,7 @@ function processPage<P extends Props = {}>(
 	};
 }
 
-export default async function attachRuntime(
-	cwd: string,
-	server: Server
-): Promise<DetachRuntime> {
+export default async function createHandler(cwd: string) {
 	const paths = getPaths(cwd);
 	const bundleInfo: BundleInfo = JSON.parse(
 		await readFile(paths.bundleInfoPath, 'utf-8')
@@ -307,9 +302,7 @@ export default async function attachRuntime(
 		}
 	});
 
-	server.on('request', expressServer);
-
-	return () => {
-		server.off('request', expressServer);
+	return (req: IncomingMessage, res: ServerResponse) => {
+		expressServer(req, res);
 	};
 }

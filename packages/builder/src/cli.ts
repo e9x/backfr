@@ -1,14 +1,16 @@
 import compileBack, { version } from './compiler.js';
-import type { DetachRuntime } from 'backfr/tools';
-import { getPaths, attachRuntime } from 'backfr/tools';
+import { getPaths } from 'backfr/tools';
+import { fork } from 'child_process';
 import chokidar from 'chokidar';
 import { Command } from 'commander';
 import { expand } from 'dotenv-expand';
 import { config } from 'dotenv-flow';
-import type { IncomingMessage, ServerResponse } from 'http';
-import { createServer } from 'http';
-import { join } from 'path';
+import { dirname, join } from 'path';
 import sourceMapSupport from 'source-map-support';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const spawner = join(__dirname, 'spawner.js');
 
 sourceMapSupport.install();
 
@@ -22,6 +24,34 @@ program.action(async () => {
 	const cwd = process.cwd();
 	await compileBack(cwd, false);
 });
+
+async function spawnRuntime(cwd: string, port: number) {
+	const runtime = fork(spawner, [port.toString()], { stdio: 'inherit', cwd });
+
+	await new Promise<void>((resolve, reject) => {
+		const cleanup = () => {
+			runtime.off('error', errorHandler);
+			runtime.off('spawn', spawnHandler);
+		};
+
+		const errorHandler = (err: Error) => {
+			cleanup();
+			reject(err);
+		};
+
+		const spawnHandler = () => {
+			cleanup();
+			resolve();
+		};
+
+		runtime.once('error', errorHandler);
+		runtime.once('spawn', spawnHandler);
+	});
+
+	return () => {
+		runtime.kill('SIGKILL');
+	};
+}
 
 program
 	.command('dev')
@@ -40,49 +70,21 @@ program
 			}
 		);
 
-		const server = createServer();
-		let detachRuntime: DetachRuntime | undefined;
+		let detachRuntime: (() => void) | undefined;
 		let lastCompilation = Promise.resolve();
-
-		const defaultRequest = (req: IncomingMessage, res: ServerResponse) => {
-			// request immediately aborted?
-			res.on('error', (err) => console.error(err));
-			res.writeHead(500);
-			res.end('Server under maintenance');
-		};
-
-		const registerDefaultHandlers = () => {
-			deregisterDefaultHandlers();
-			server.on('request', defaultRequest);
-		};
-
-		const deregisterDefaultHandlers = () => {
-			server.removeListener('request', defaultRequest);
-		};
 
 		const update = async () => {
 			if (detachRuntime) detachRuntime();
-			registerDefaultHandlers();
 
 			try {
 				await compileBack(cwd, true);
-				detachRuntime = await attachRuntime(cwd, server);
-				console.log('Runtime attached');
-				deregisterDefaultHandlers();
+				detachRuntime = await spawnRuntime(cwd, port);
 			} catch (err) {
 				console.error(err);
 			}
 		};
 
 		await update();
-
-		server.on('listening', () => {
-			console.log('Runtime listening on port', port);
-		});
-
-		server.listen({
-			port,
-		});
 
 		watcher.on('all', async () => {
 			await lastCompilation;
