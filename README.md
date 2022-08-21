@@ -37,3 +37,7 @@ $ backfr
 ## Project structure
 
 See [Structure.md](./Structure.md)
+
+## Error handling
+
+See [Errors.md](./Errors.md)
