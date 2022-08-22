@@ -133,14 +133,9 @@ async function lintStage(
 
 	const formatted = await formatter.format(res);
 
-	// todo: check if there are any
-	if (warningCount || errorCount) {
-		console.log(formatted);
-	}
+	if (warningCount || errorCount) console.log(formatted);
 
-	if (errorCount) {
-		return false;
-	}
+	if (errorCount) return false;
 
 	return true;
 }
@@ -275,7 +270,7 @@ export default async function compileBack(
 
 	if (!tsConfigFile) console.error(`Couldn't find TSConfig file.`);
 
-	if (!tsConfigFile || !lintStage(cwd, tsConfigFile, javascript)) {
+	if (!tsConfigFile || !(await lintStage(cwd, tsConfigFile, javascript))) {
 		console.error('Cannot continue compilation.');
 		return false;
 	}
