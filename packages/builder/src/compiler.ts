@@ -247,7 +247,7 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 
 					if (checksum !== goalChecksums.requires[file]) {
 						reuseBuild = false;
-						console.log(js, 'cannot be lazy compiled,', file, 'was updated');
+						console.log(`Script ${js} was updated, rebuilding...`);
 						break;
 					}
 				}
@@ -262,10 +262,7 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 					if (checksum !== goalChecksums.emitted[file]) {
 						reuseBuild = false;
 						console.log(
-							js,
-							'cannot be lazy compiled, asset',
-							file,
-							'was corrupted'
+							`Asset ${file} of script ${js} was corrupted, rebuilding...`
 						);
 						break;
 					}
@@ -276,11 +273,11 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 				reuseBuild = false;
 			}
 		} else {
+			console.log(`New script ${js}, building...`);
 			reuseBuild = false;
 		}
 
 		if (reuseBuild) {
-			console.log('Skip', js);
 			bundleInfo.checksums[js] = prevBundleInfo!.checksums[js];
 			continue;
 		}
@@ -305,8 +302,6 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 					parse(id).ext
 				}`,
 			});
-
-		console.log('Compile', js);
 
 		const res = resolve(cwd, js);
 
