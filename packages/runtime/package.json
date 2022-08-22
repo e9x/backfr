@@ -1,6 +1,6 @@
 {
 	"name": "backfr",
-	"version": "1.0.0-beta.11",
+	"version": "1.0.0-beta.12",
 	"description": "backfr runtime",
 	"type": "module",
 	"types": "index.d.ts",

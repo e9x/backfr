@@ -27,11 +27,14 @@ for (const pkg of packages.map((pk) => `packages/${pk}/package.json`)) {
 for (const pkg of packages.map((pk) => `packages/${pk}/package.json`)) {
 	const data = JSON.parse(await readFile(pkg));
 
-	for (const x of ['dependencies', 'devDependencies'])
-		if (data[x]) {
+	for (const depType of ['dependencies', 'devDependencies'])
+		if (data[depType]) {
+			const deps = data[depType];
+
 			for (const pn of packageNames) {
-				if (pn in data[x]) {
-					data[x][pn] = '^' + version;
+				if (pn in deps) {
+					const [, sym] = deps[pn].match(/^(>=|<=|[<>~^])/) || [];
+					deps[pn] = (sym || '') + version;
 				}
 			}
 		}
