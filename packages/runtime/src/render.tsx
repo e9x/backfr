@@ -5,17 +5,11 @@ import type {
 	GetServerSideProps,
 	Props,
 } from '../types';
-import { renderToPipeableStream } from 'react-dom/server';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import type { FilledContext } from 'react-helmet-async';
-import { PassThrough } from 'stream';
 
 export { Helmet as Head };
-
-export interface BackModule<P extends Props = {}> {
-	default: BackPage<P>;
-	getServerSideProps?: GetServerSideProps<P>;
-}
 
 export interface ProcessedPage<P extends Props = {}> {
 	getServerSideProps: GetServerSideProps;
@@ -23,60 +17,41 @@ export interface ProcessedPage<P extends Props = {}> {
 	css: string[];
 }
 
-export async function renderPage<T extends Props>(
+export function renderPage<T extends Props>(
 	{ Page, css }: ProcessedPage<T>,
 	props: T,
 	{ Page: App, css: appCSS }: ProcessedPage & { Page: AppPage },
 	context: BaseContext
 ) {
-	return await new Promise<void>((resolve, reject) => {
-		const to = new PassThrough();
+	const helmetContext: Partial<FilledContext> = {};
 
-		to.on('data', (chunk: Buffer) => {
-			context.res.write(chunk);
-		});
+	const markup = renderToStaticMarkup(
+		<HelmetProvider context={helmetContext}>
+			<Helmet>
+				{appCSS.concat(css).map((css) => (
+					<link rel="stylesheet" href={css} key={css} />
+				))}
+			</Helmet>
+			<App Component={Page} pageProps={props} />
+		</HelmetProvider>
+	);
 
-		to.on('end', () => {
-			context.res.write(`</div></body></html>`);
-			context.res.end();
-			resolve();
-		});
+	const helmet = helmetContext.helmet!;
+	context.res.setHeader('content-type', 'text/html');
+	const ht = helmet.htmlAttributes.toString();
 
-		const helmetContext: Partial<FilledContext> = {};
+	const helmetInject = `${helmet.title.toString()}${helmet.priority}${
+		helmet.meta
+	}${helmet.link}${helmet.script}${helmet.noscript}`.replace(
+		/ data-rh="true"/g,
+		''
+	);
 
-		const stream = renderToPipeableStream(
-			<HelmetProvider context={helmetContext}>
-				<Helmet>
-					{appCSS.concat(css).map((css) => (
-						<link rel="stylesheet" href={css} key={css} />
-					))}
-				</Helmet>
-				<App Component={Page} pageProps={props} />
-			</HelmetProvider>,
-			{
-				onShellError(err) {
-					reject(err);
-				},
-				onShellReady() {
-					const helmet = helmetContext.helmet!;
-					context.res.setHeader('content-type', 'text/html');
-					const ht = helmet.htmlAttributes.toString();
-					context.res.write(
-						`<!doctype html><html${
-							ht ? ' ' + ht : ht
-						}><head><meta charSet="utf-8" />${helmet.title.toString()}${
-							helmet.priority
-						}${helmet.meta}${helmet.link}${helmet.script}${
-							helmet.noscript
-						}</head><body${helmet.bodyAttributes}><div id="root">`.replace(
-							/ data-rh="true"/g,
-							''
-						)
-					);
-				},
-			}
-		);
-
-		stream.pipe(to);
-	});
+	context.res.send(
+		`<!doctype html><html${
+			ht ? ' ' + ht : ht
+		}><head><meta charSet="utf-8" />${helmetInject}</head><body${
+			helmet.bodyAttributes
+		}><div id="root">${markup}</div></html>`
+	);
 }

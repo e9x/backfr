@@ -71,6 +71,10 @@ export const { version } = JSON.parse(
 	await readFile(join(__dirname, '..', 'package.json'), 'utf-8')
 ) as { version: string };
 
+const builtin404 = join(__dirname, 'pages', '_404.js');
+const builtinError = join(__dirname, 'pages', '_error.js');
+const builtinApp = join(__dirname, 'pages', '_app.js');
+
 let lastModuleCSS: string[] | undefined;
 
 interface BackComponent {
@@ -120,10 +124,11 @@ function processMiddleware(component: BackComponent): {
 }
 
 function processPage<P extends Props = {}>(
-	component: BackComponent
+	component: BackComponent,
+	src: string
 ): ProcessedPage<P> {
 	if (!component.module.default)
-		throw new Error(`Page did not satisfy BackModule`);
+		throw new Error(`Page ${src} couldn't be processed`);
 
 	return {
 		Page: component.module.default as BackPage<P>,
@@ -186,7 +191,7 @@ export default async function createHandler(cwd: string) {
 		if (errorCode) {
 			errorCodePages.set(
 				parseInt(errorCode),
-				processPage<ErrorCodeProps>(component)
+				processPage<ErrorCodeProps>(component, src)
 			);
 			continue;
 		}
@@ -204,14 +209,14 @@ export default async function createHandler(cwd: string) {
 		} else
 			switch (route) {
 				case '/_error':
-					error = processPage<ErrorProps>(component);
+					error = processPage<ErrorProps>(component, src);
 					break;
 				case '/_app':
-					app = processPage<AppProps>(component);
+					app = processPage<AppProps>(component, src);
 					break;
 				default:
 					{
-						const page = processPage(component);
+						const page = processPage(component, src);
 
 						expressServer.all(route, async (req, res, next) => {
 							try {
@@ -247,18 +252,18 @@ export default async function createHandler(cwd: string) {
 			errorCodePages.set(
 				404,
 				processPage<ErrorCodeProps>(
-					await requireComponent(join(__dirname, 'pages', '_404.js'))
+					await requireComponent(builtin404),
+					builtin404
 				)
 			);
 
 		error ||= processPage<ErrorProps>(
-			await requireComponent(join(__dirname, 'pages', '_error.js'))
+			await requireComponent(builtinError),
+			builtinError
 		);
 	}
 
-	app ||= processPage(
-		await requireComponent(require.resolve('./pages/_app.js'))
-	);
+	app ||= processPage(await requireComponent(builtinApp), builtinApp);
 
 	expressServer.use(express.static(paths.publicFiles));
 	expressServer.use('/static/', express.static(paths.outputStatic));
@@ -284,6 +289,8 @@ export default async function createHandler(cwd: string) {
 			console.error('Internal error:');
 			console.error(err);
 		}
+
+		res.status(statusCode);
 
 		const title = expose ? message : STATUS_CODES[statusCode] || '';
 
