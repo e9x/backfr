@@ -38,7 +38,117 @@ export const { version }: { version: string } = JSON.parse(
 	)
 );
 
-export default async function compileBack(cwd: string, isDevelopment: boolean) {
+async function lintStage(
+	cwd: string,
+	tsConfigFile: string,
+	javascript: string[]
+) {
+	const aParsedTsconfig = ts.parseConfigFileTextToJson(
+		tsConfigFile,
+		await readFile(tsConfigFile, 'utf-8')
+	);
+
+	const baseDir = dirname(tsConfigFile);
+
+	if (aParsedTsconfig.error) {
+		console.error(
+			ts.formatDiagnosticsWithColorAndContext([aParsedTsconfig.error], {
+				getCurrentDirectory: () => cwd,
+				getCanonicalFileName: (f) => f,
+				getNewLine: () => '\n',
+			})
+		);
+
+		console.error(`Couldn't parse TSConfig.`);
+		return false;
+	}
+
+	const parsedTsConfig = ts.parseJsonConfigFileContent(
+		aParsedTsconfig.config,
+		ts.sys,
+		baseDir,
+		undefined,
+		tsConfigFile
+	);
+
+	if (parsedTsConfig.errors.length) {
+		console.error(
+			ts.formatDiagnosticsWithColorAndContext(parsedTsConfig.errors, {
+				getCurrentDirectory: () => cwd,
+				getCanonicalFileName: (f) => f,
+				getNewLine: () => '\n',
+			})
+		);
+
+		console.error(`Couldn't parse TSConfig.`);
+		return false;
+	}
+
+	if (parsedTsConfig.options.jsx !== ts.JsxEmit.ReactJSX) {
+		console.error('tsconfig.jsx must be "react-jsx".');
+		return false;
+	}
+
+	if (parsedTsConfig.options.module !== ts.ModuleKind.ESNext) {
+		console.error(`tsconfig.module must be "ESNext".`);
+		return false;
+	}
+
+	const program = ts.createProgram({
+		options: {
+			...parsedTsConfig.options,
+			noEmit: true,
+		},
+		rootNames: javascript,
+		projectReferences: parsedTsConfig.projectReferences,
+	});
+
+	const preEmitDiag = ts.getPreEmitDiagnostics(program);
+
+	if (preEmitDiag.length) {
+		console.error(
+			ts.formatDiagnosticsWithColorAndContext(preEmitDiag, {
+				getCurrentDirectory: () => cwd,
+				getCanonicalFileName: (f) => f,
+				getNewLine: () => '\n',
+			})
+		);
+
+		return false;
+	}
+
+	const lint = new ESLint({ cwd });
+
+	// fake async api haha
+	const res = await lint.lintFiles(javascript);
+	const formatter = await lint.loadFormatter();
+
+	let errorCount = 0;
+	let warningCount = 0;
+
+	for (const r of res) {
+		errorCount += r.errorCount;
+		warningCount += r.warningCount;
+	}
+
+	const formatted = await formatter.format(res);
+
+	// todo: check if there are any
+	if (warningCount || errorCount) {
+		console.log(formatted);
+	}
+
+	if (errorCount) {
+		return false;
+	}
+
+	return true;
+}
+
+export default async function compileBack(
+	cwd: string,
+	isDevelopment: boolean
+): Promise<boolean> {
 	process.env.NODE_ENV = isDevelopment ? 'development' : 'production';
 
 	const paths = getPaths(cwd);
@@ -47,7 +157,11 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 		(file) => file === 'back.config.js' || file === 'back.config.mjs'
 	);
 
-	if (!configFile) throw new Error('Config file missing');
+	if (!configFile) {
+		console.error('Back.js config missing.');
+		console.error('Cannot continue compilation.');
+		return;
+	}
 
 	const { default: config } = (await import(resolve(cwd, configFile))) as {
 		default: Config;
@@ -57,7 +171,8 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 
 	if (!validateConfig(config)) {
 		console.error(validateConfig.errors);
-		throw new Error('Bad schema');
+		console.error('Config did not match schema.');
+		console.error('Cannot continue compilation.');
 	}
 
 	const sourceMap = isDevelopment || (config.sourceMap ?? true);
@@ -158,69 +273,12 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 
 	const tsConfigFile = ts.findConfigFile(cwd, ts.sys.fileExists);
 
-	if (!tsConfigFile)
-		throw new Error(`Couldn't find tsconfig. Incompatible project.`);
+	if (!tsConfigFile) console.error(`Couldn't find TSConfig file.`);
 
-	const aParsedTsconfig = ts.parseConfigFileTextToJson(
-		tsConfigFile,
-		await readFile(tsConfigFile, 'utf-8')
-	);
-
-	const baseDir = dirname(tsConfigFile);
-
-	if (aParsedTsconfig.error) {
-		console.error(
-			ts.formatDiagnosticsWithColorAndContext([aParsedTsconfig.error], {
-				getCurrentDirectory: () => cwd,
-				getCanonicalFileName: (f) => f,
-				getNewLine: () => '\n',
-			})
-		);
-
-		throw new Error(`Couldn't parse tsconfig. Incompatible project.`);
+	if (!tsConfigFile || !lintStage(cwd, tsConfigFile, javascript)) {
+		console.error('Cannot continue compilation.');
+		return false;
 	}
-
-	const parsedTsConfig = ts.parseJsonConfigFileContent(
-		aParsedTsconfig.config,
-		ts.sys,
-		baseDir,
-		undefined,
-		tsConfigFile
-	);
-
-	if (parsedTsConfig.errors.length) {
-		console.error(
-			ts.formatDiagnosticsWithColorAndContext(parsedTsConfig.errors, {
-				getCurrentDirectory: () => cwd,
-				getCanonicalFileName: (f) => f,
-				getNewLine: () => '\n',
-			})
-		);
-
-		throw new Error(`Couldn't parse tsconfig. Incompatible project.`);
-	}
-
-	if (parsedTsConfig.options.jsx !== ts.JsxEmit.ReactJSX)
-		throw new Error(`tsconfig.jsx must be "react-jsx". Incompatible project.`);
-
-	if (parsedTsConfig.options.module !== ts.ModuleKind.ESNext)
-		throw new Error(`tsconfig.module must be "ESNext". Incompatible project.`);
-
-	const lint = new ESLint({ cwd });
-
-	// fake async api haha
-	const res = await lint.lintFiles(javascript);
-	const formatter = await lint.loadFormatter();
-
-	let errorCount = 0;
-	for (const r of res) errorCount += r.errorCount;
-
-	const formatted = await formatter.format(res);
-
-	console.log(formatted.trim());
-
-	if (errorCount)
-		throw new Error('Fix eslint errors before trying to compile again.');
 
 	const includeMedia = 'src/**/{*.avif,*.webp,*.bmp,*.gif,*.jpeg,*.jpg,*.png}';
 	const includeCSS =
@@ -368,6 +426,7 @@ export default async function compileBack(cwd: string, isDevelopment: boolean) {
 				sourceMap && sourcemaps(),
 				typescript({
 					cwd,
+					check: false,
 					tsconfig: tsConfigFile,
 				}),
 			],
