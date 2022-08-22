@@ -54,7 +54,12 @@ program
 		const cwd = process.cwd();
 		const paths = getPaths(cwd);
 		const watcher = chokidar.watch(
-			[join(cwd, 'back.config.js'), join(cwd, 'back.config.mjs'), paths.src],
+			[
+				join(cwd, 'back.config.js'),
+				join(cwd, 'back.config.mjs'),
+				join(cwd, 'tsconfig.json'),
+				paths.src,
+			],
 			{
 				persistent: true,
 			}

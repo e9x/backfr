@@ -11,6 +11,10 @@ export interface BundleInfo {
 	pages: RouteMeta[];
 	middleware?: string;
 	runtimeOptions: RuntimeOptions;
+	configChecksums: {
+		back: string;
+		tsconfig?: string;
+	};
 	checksums: Record<string, BundleChecksum>;
 }
 
@@ -66,6 +70,18 @@ export const bundleInfoSchema = {
 				},
 				required: ['route', 'src'],
 			},
+		},
+		configChecksums: {
+			type: 'object',
+			properties: {
+				back: {
+					type: 'string',
+				},
+				tsconfig: {
+					type: 'string',
+				},
+			},
+			required: ['back'],
 		},
 		checksums: {
 			type: 'object',

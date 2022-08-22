@@ -40,59 +40,10 @@ export const { version }: { version: string } = JSON.parse(
 
 async function lintStage(
 	cwd: string,
-	tsConfigFile: string,
+	parsedTsConfig: ts.ParsedCommandLine,
 	javascript: string[]
 ) {
-	const aParsedTsconfig = ts.parseConfigFileTextToJson(
-		tsConfigFile,
-		await readFile(tsConfigFile, 'utf-8')
-	);
-
-	const baseDir = dirname(tsConfigFile);
-
-	if (aParsedTsconfig.error) {
-		console.error(
-			ts.formatDiagnosticsWithColorAndContext([aParsedTsconfig.error], {
-				getCurrentDirectory: () => cwd,
-				getCanonicalFileName: (f) => f,
-				getNewLine: () => '\n',
-			})
-		);
-
-		console.error(`Couldn't parse TSConfig.`);
-		return false;
-	}
-
-	const parsedTsConfig = ts.parseJsonConfigFileContent(
-		aParsedTsconfig.config,
-		ts.sys,
-		baseDir,
-		undefined,
-		tsConfigFile
-	);
-
-	if (parsedTsConfig.errors.length) {
-		console.error(
-			ts.formatDiagnosticsWithColorAndContext(parsedTsConfig.errors, {
-				getCurrentDirectory: () => cwd,
-				getCanonicalFileName: (f) => f,
-				getNewLine: () => '\n',
-			})
-		);
-
-		console.error(`Couldn't parse TSConfig.`);
-		return false;
-	}
-
-	if (parsedTsConfig.options.jsx !== ts.JsxEmit.ReactJSX) {
-		console.error('tsconfig.jsx must be "react-jsx".');
-		return false;
-	}
-
-	if (parsedTsConfig.options.module !== ts.ModuleKind.ESNext) {
-		console.error(`tsconfig.module must be "ESNext".`);
-		return false;
-	}
+	if (!javascript.length) return true;
 
 	const program = ts.createProgram({
 		options: {
@@ -138,6 +89,20 @@ async function lintStage(
 	if (errorCount) return false;
 
 	return true;
+}
+
+async function generateConfigChecksums(
+	cwd: string,
+	configFile: string
+): Promise<BundleInfo['configChecksums']> {
+	return {
+		back: await fileChecksum(configFile, 'sha256', 'base64'),
+		tsconfig: await fileChecksum(
+			join(cwd, 'tsconfig.json'),
+			'sha256',
+			'base64'
+		),
+	};
 }
 
 export default async function compileBack(
@@ -201,8 +166,23 @@ export default async function compileBack(
 		version,
 		runtimeOptions: <RuntimeOptions>config.runtimeOptions,
 		pages: [],
+		configChecksums: await generateConfigChecksums(
+			cwd,
+			resolve(cwd, configFile)
+		),
 		checksums: {},
 	};
+
+	if (prevBundleInfo)
+		for (const key in bundleInfo.configChecksums) {
+			if (
+				bundleInfo.configChecksums[key] !== prevBundleInfo.configChecksums[key]
+			) {
+				console.log('Config changed.');
+				prevBundleInfo = undefined;
+				break;
+			}
+		}
 
 	const getDestination = (js: string) => {
 		const parsed = parse(js);
@@ -268,11 +248,65 @@ export default async function compileBack(
 
 	const tsConfigFile = ts.findConfigFile(cwd, ts.sys.fileExists);
 
-	if (!tsConfigFile) console.error(`Couldn't find TSConfig file.`);
-
-	if (!tsConfigFile || !(await lintStage(cwd, tsConfigFile, javascript))) {
+	if (!tsConfigFile) {
+		console.error(`Couldn't find TSConfig file.`);
 		console.error('Cannot continue compilation.');
-		return false;
+		return;
+	}
+
+	const aParsedTsconfig = ts.parseConfigFileTextToJson(
+		tsConfigFile,
+		await readFile(tsConfigFile, 'utf-8')
+	);
+
+	const baseDir = dirname(tsConfigFile);
+
+	if (aParsedTsconfig.error) {
+		console.error(
+			ts.formatDiagnosticsWithColorAndContext([aParsedTsconfig.error], {
+				getCurrentDirectory: () => cwd,
+				getCanonicalFileName: (f) => f,
+				getNewLine: () => '\n',
+			})
+		);
+
+		console.error(`Couldn't parse TSConfig.`);
+		console.error('Cannot continue compilation.');
+		return;
+	}
+
+	const parsedTsConfig = ts.parseJsonConfigFileContent(
+		aParsedTsconfig.config,
+		ts.sys,
+		baseDir,
+		undefined,
+		tsConfigFile
+	);
+
+	if (parsedTsConfig.errors.length) {
+		console.error(
+			ts.formatDiagnosticsWithColorAndContext(parsedTsConfig.errors, {
+				getCurrentDirectory: () => cwd,
+				getCanonicalFileName: (f) => f,
+				getNewLine: () => '\n',
+			})
+		);
+
+		console.error(`Couldn't parse TSConfig.`);
+		console.error('Cannot continue compilation.');
+		return;
+	}
+
+	if (parsedTsConfig.options.jsx !== ts.JsxEmit.ReactJSX) {
+		console.error('tsconfig.jsx must be "react-jsx".');
+		console.error('Cannot continue compilation.');
+		return;
+	}
+
+	if (parsedTsConfig.options.module !== ts.ModuleKind.ESNext) {
+		console.error(`tsconfig.module must be "ESNext".`);
+		console.error('Cannot continue compilation.');
+		return;
 	}
 
 	const includeMedia = 'src/**/{*.avif,*.webp,*.bmp,*.gif,*.jpeg,*.jpg,*.png}';
@@ -282,9 +316,9 @@ export default async function compileBack(
 
 	const assetFilter = createFilter([includeCSS, includeMedia, includeSVG]);
 
-	for (const js of javascript) {
-		const file = getDestination(js);
+	const compileJavascript: string[] = [];
 
+	for (const js of javascript) {
 		let reuseBuild = true;
 
 		if (prevBundleInfo && js in prevBundleInfo.checksums) {
@@ -334,6 +368,19 @@ export default async function compileBack(
 			bundleInfo.checksums[js] = prevBundleInfo!.checksums[js];
 			continue;
 		}
+
+		compileJavascript.push(js);
+	}
+
+	const r = await lintStage(cwd, parsedTsConfig, compileJavascript);
+
+	if (!r) {
+		console.error('Cannot continue compilation.');
+		return;
+	}
+
+	for (const js of compileJavascript) {
+		const file = getDestination(js);
 
 		const tempDist: string[] = [];
 
@@ -418,12 +465,12 @@ export default async function compileBack(
 							)}.svg`,
 						}),
 				}),
-				sourceMap && sourcemaps(),
 				typescript({
 					cwd,
 					check: false,
 					tsconfig: tsConfigFile,
 				}),
+				sourceMap && sourcemaps(),
 			],
 		});
 
