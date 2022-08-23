@@ -33,7 +33,7 @@ program
 		});
 
 		server.listen({ host, port }, () => {
-			console.log('Listening on', port);
+			console.log('Runtime listening on port', port);
 		});
 	});
 
