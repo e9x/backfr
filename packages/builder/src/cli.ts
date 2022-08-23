@@ -22,7 +22,8 @@ program.name('backfr-builder').version(version).description('backfr builder');
 
 program.action(async () => {
 	const cwd = process.cwd();
-	await compileBack(cwd, false);
+	const success = await compileBack(cwd, false);
+	process.exit(success ? 0 : 1);
 });
 
 async function spawnRuntime(cwd: string, port: number) {

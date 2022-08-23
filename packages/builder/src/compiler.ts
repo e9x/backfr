@@ -120,7 +120,7 @@ export default async function compileBack(
 	if (!configFile) {
 		console.error('Back.js config missing.');
 		console.error('Cannot continue compilation.');
-		return;
+		return false;
 	}
 
 	const { default: config } = (await import(resolve(cwd, configFile))) as {
@@ -251,7 +251,7 @@ export default async function compileBack(
 	if (!tsConfigFile) {
 		console.error(`Couldn't find TSConfig file.`);
 		console.error('Cannot continue compilation.');
-		return;
+		return false;
 	}
 
 	const aParsedTsconfig = ts.parseConfigFileTextToJson(
@@ -272,7 +272,7 @@ export default async function compileBack(
 
 		console.error(`Couldn't parse TSConfig.`);
 		console.error('Cannot continue compilation.');
-		return;
+		return false;
 	}
 
 	const parsedTsConfig = ts.parseJsonConfigFileContent(
@@ -294,19 +294,19 @@ export default async function compileBack(
 
 		console.error(`Couldn't parse TSConfig.`);
 		console.error('Cannot continue compilation.');
-		return;
+		return false;
 	}
 
 	if (parsedTsConfig.options.jsx !== ts.JsxEmit.ReactJSX) {
 		console.error('tsconfig.jsx must be "react-jsx".');
 		console.error('Cannot continue compilation.');
-		return;
+		return false;
 	}
 
 	if (parsedTsConfig.options.module !== ts.ModuleKind.ESNext) {
 		console.error(`tsconfig.module must be "ESNext".`);
 		console.error('Cannot continue compilation.');
-		return;
+		return false;
 	}
 
 	const includeMedia = 'src/**/{*.avif,*.webp,*.bmp,*.gif,*.jpeg,*.jpg,*.png}';
@@ -372,11 +372,9 @@ export default async function compileBack(
 		compileJavascript.push(js);
 	}
 
-	const r = await lintStage(cwd, parsedTsConfig, compileJavascript);
-
-	if (!r) {
+	if (!(await lintStage(cwd, parsedTsConfig, compileJavascript))) {
 		console.error('Cannot continue compilation.');
-		return;
+		return false;
 	}
 
 	for (const js of compileJavascript) {
@@ -521,4 +519,6 @@ export default async function compileBack(
 
 	await writeFile(paths.packagePath, JSON.stringify({ type: 'module' }));
 	await writeFile(paths.bundleInfoPath, JSON.stringify(bundleInfo));
+
+	return true;
 }
