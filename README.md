@@ -2,6 +2,10 @@
 
 Back from compiling all your server + client code, serving 100 KB bundles, and using overkill frameworks for small tasks.
 
+## Archived
+
+This project is unmaintained and is likely going to be redundant once Next.JS figures out how to strip outputted HTML of JS.
+
 ## Examples
 
 Example repo can be found [here](https://github.com/e9x/backfr-example).
